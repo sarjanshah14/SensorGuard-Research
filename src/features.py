@@ -18,15 +18,20 @@ SENSOR_COLS = [
 ]
 
 
-def build_features(df: pd.DataFrame, group_col: str | None = None, sensor_cols=None):
+def build_features(df: pd.DataFrame, group_col: str | None = None, sensor_cols=None,
+                   include_clock: bool = False):
     """Build a causal feature matrix from raw SKAB sensor columns.
 
     Returns (X, feature_names): X is an (n_rows, n_features) float ndarray
-    row-aligned with df (same order, same length). hour/day_of_week are
-    included per the original spec but carry little signal here — each
-    SKAB CSV is a single short run, so both are near-constant within a
-    file; time_since_start is the temporal feature that actually varies
-    within a run.
+    row-aligned with df (same order, same length).
+
+    include_clock controls the wall-clock features hour/day_of_week. They
+    are OFF by default: across the pooled runs they're spurious — they let a
+    model latch onto "faults tended to happen on this weekday/hour", which
+    is an artifact of when the experiments were scheduled, not a physical
+    fault signal (see experiments/feature_ablation.py). time_since_start is
+    always kept: it's elapsed seconds within a run, which is a legitimate
+    within-experiment temporal feature.
     """
     sensor_cols = sensor_cols or SENSOR_COLS
     groups = [g for _, g in df.groupby(group_col, sort=False)] if group_col else [df]
@@ -35,8 +40,9 @@ def build_features(df: pd.DataFrame, group_col: str | None = None, sensor_cols=N
     for g in groups:
         ts = g.index
         feats = pd.DataFrame(index=range(len(g)))
-        feats["hour"] = ts.hour.values
-        feats["day_of_week"] = ts.dayofweek.values
+        if include_clock:
+            feats["hour"] = ts.hour.values
+            feats["day_of_week"] = ts.dayofweek.values
         feats["time_since_start"] = (ts - ts[0]).total_seconds().values
 
         for col in sensor_cols:

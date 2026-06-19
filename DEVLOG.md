@@ -348,3 +348,72 @@ whole story in one place — which model won, the full comparison table, and
 all 4 charts with explanations of how to read them — without touching the
 terminal. Also caught and fixed an out-of-date description elsewhere in the
 app that would have contradicted our real method.
+
+---
+
+## Session 7 — 2026-06-20 — Trying to legitimately raise the score, and a leak we caught (ROADMAP B5)
+
+**Goal:** Sarjan asked the right question: can we *legitimately* improve the
+scores, and if so, write that up as part of the paper ("score was X, it was
+lacking because Y, we did Z, now it's W")? His condition: only adopt a
+change if it genuinely, honestly helps — otherwise wrap up, what we have is
+already a valid comparison.
+
+**Attempt 1 — temporal smoothing of predictions.**
+- Reasoning: real faults last many seconds; an isolated 1-2 second
+  "anomaly" prediction in the middle of normal operation is almost always a
+  false alarm. So requiring a prediction to persist for >= `min_run` seconds
+  before we believe it should remove false alarms and raise precision.
+- Built `src/postprocess.py` (`smooth_min_run`, applied per source file so
+  runs never merge across experiments) and `experiments/temporal_smoothing.py`,
+  tuning `min_run` on the validation files (never the test set).
+- Result: it helped IsolationForest on *validation* (best at min_run=8) but
+  on the actual test set it *lowered* its F1 (0.496 -> 0.478) — it cut
+  recall (0.76 -> 0.61) more than it raised precision (0.37 -> 0.39) — and
+  it hurt the other 3 models outright (their best was "no smoothing").
+- Interpretation: the false alarms are NOT short blips; they're sustained
+  stretches where the models misread normal operation. Smoothing can't fix
+  that. **Rejected.**
+
+**Attempt 2 — removing wall-clock features (and what it exposed).**
+- Reasoning: `hour` and `day_of_week` could be *spurious*. Built
+  `experiments/feature_ablation.py` to compare with vs. without them.
+- Result: removing them *lowered* IsolationForest F1 by 0.03 (0.496 ->
+  0.466). The other 3 barely moved.
+- The important realization: that 0.03 was **leakage**, not skill. Our test
+  set is the last 20% (by time) of the *same* fault files used for training.
+  Within a single short file the hour barely changes, so `hour` effectively
+  becomes an ID for "which experiment this is" — and because train and test
+  come from the same files, the model can use that ID to recall how
+  fault-prone each file is. That inflates the test score in a way that would
+  evaporate on any genuinely new machine/recording.
+- **Decision: remove them.** `build_features` now defaults to
+  `include_clock=False` (41 features instead of 43). `time_since_start` is
+  kept — elapsed seconds within a run is a legitimate within-experiment
+  signal, not a wall-clock ID.
+
+**Regenerated the official results** (`python main.py`) with the
+leakage-free feature set. New committed numbers:
+
+| model | F1 (leaky, old) | F1 (honest, official) |
+|---|---|---|
+| Z-score | 0.410 | 0.411 |
+| One-Class SVM | 0.410 | 0.406 |
+| LOF | 0.381 | 0.378 |
+| IsolationForest | 0.496 | **0.466** |
+
+IsolationForest is still the clear winner, so the paper's central claim is
+unchanged.
+
+**Outcome (plain language):** We genuinely tried to push the score up two
+different honest ways. Neither worked — and the second attempt actually
+revealed that a small part of our earlier score was the model "cheating" by
+noticing *when* each experiment was recorded rather than detecting faults.
+We removed that crutch, so our official IsolationForest score came down a
+little (about 0.50 to 0.47), but it's now a number we can fully defend to a
+reviewer. So per Sarjan's condition, we are NOT able to legitimately raise
+the score — and we're wrapping up the modeling here. The leak we caught is
+itself a good, honest detail to mention in the paper's methodology. Two
+small ablation scripts (`experiments/temporal_smoothing.py`,
+`experiments/feature_ablation.py`) are kept as the evidence behind these
+decisions.

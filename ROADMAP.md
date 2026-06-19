@@ -108,11 +108,42 @@ signature of flagging everything. Adopted contamination=0.35 (from
 IsolationForest's real peak) across all 3 contamination/nu-based models
 for consistency, kept LOF's n_neighbors=20 (sweep gains beyond it were
 marginal/noisy), and set Z-score threshold=2.0 (best non-degenerate
-value). Final numbers on the untouched test set: IsolationForest F1
+value). Numbers at this checkpoint: IsolationForest F1
 0.350 -> 0.496, Z-score 0.248 -> 0.410, One-Class SVM 0.279 -> 0.410, LOF
 0.257 -> 0.381 — all 4 improved, none show the flag-everything signature.
+**NOTE: revised down by B5, which removed leaking wall-clock features —
+see B5 for the final official numbers (IsolationForest F1 0.466).**
 
 ---
+
+### [x] B5. Investigate legitimate score improvements (+ catch a leak)
+**What:** Sarjan asked whether we could honestly raise the scores and, if
+so, frame the before/after as part of the paper. Tried two principled
+ideas; the honest outcome was a wash-to-slightly-down, and the process
+caught a data leak.
+**Resolved:**
+1. **Temporal smoothing** (`src/postprocess.py`, `experiments/temporal_smoothing.py`):
+   real faults are sustained, so isolated 1-2s anomaly predictions should be
+   removable false alarms. Tuned `min_run` on the validation files. It
+   helped IsolationForest on *validation* (k=8) but *lowered* its test F1
+   (0.496 → 0.478, recall fell more than precision rose) and hurt the other
+   3 outright. **Rejected** — the false alarms are sustained, not blips.
+2. **Wall-clock features** (`experiments/feature_ablation.py`): removing
+   `hour`/`day_of_week` lowered IsolationForest F1 by 0.03. That drop is the
+   tell that they were **leaking** — the test set is the last 20% of the
+   *same* files used in training, so within a file `hour` is ~constant and
+   acts as a file-identifier the model exploits to recall that file's
+   fault-propensity. **Removed them** (`build_features(include_clock=False)`
+   is now the default); the honest, leakage-free numbers are lower but
+   trustworthy.
+**Official leakage-free test results (regenerated into results/metrics.json):**
+IsolationForest F1 **0.466** (P 0.362, R 0.656) > Z-score 0.411 > One-Class
+SVM 0.406 > LOF 0.378. IsolationForest is still the clear winner — the
+paper's central claim holds. **Conclusion: no legitimate score increase was
+available; the rigorous path slightly lowers the headline number, and we
+keep it. Modeling is done.** (Minor noted caveat: contamination=0.35 was
+tuned on the 43-feature set; kept as-is since it's a coarse knob — a full
+re-tune on 41 features is optional future work.)
 
 ## Phase C — Results, Visualization, and the Streamlit App
 
