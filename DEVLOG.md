@@ -303,3 +303,48 @@ later — the zoomed-in close-up can sometimes be fully inside a fault
 stretch (so the whole background is shaded), depending on which file is
 auto-picked; it still clearly shows the fault's physical signature (a jump
 in flow rate right at the changepoint line).
+
+---
+
+## Session 6 — 2026-06-20 — Results inside the Streamlit app (ROADMAP C2)
+
+**Goal:** Make the model results reviewable visually inside the existing
+`skab.py` Streamlit explorer, instead of only in the terminal or the raw
+`results/metrics.json` file (Sarjan's stated preference for clarity).
+
+**Steps taken:**
+1. Added a new "🏆 Model Results" tab to `skab.py`. It reads
+   `results/metrics.json` and shows:
+   - Headline metric cards (best model + its precision/recall/F1) with a
+     plain-English explanation of what those numbers mean.
+   - The full 4-model comparison table, with the best-F1 row highlighted.
+   - The 4 paper figures (the exact PNGs from `results/figures/`), each
+     with a plain-English caption explaining how to read it.
+   - A graceful "run `python main.py` first" message if results don't
+     exist yet.
+2. Kept it additive — didn't restructure the existing tabs or loaders,
+   reused the app's existing style conventions.
+
+**Issue found while doing this:** the older "🤖 Model-Ready" tab had a
+"Train / Test Split Strategy" table that was now factually wrong — it
+predated our actual pipeline and described a different (and backwards)
+split: "Train = anomaly-free only; Validation = 20% of fault files; Test =
+80% of fault files." Our real split is Train = anomaly-free + normal rows
+of the first 80% of each fault file, Validation = whole held-out files (for
+tuning only), Test = last 20% of each fault file. **Fix:** rewrote that
+table to match what the code actually does, with pointers to the DEVLOG
+sessions that explain why. Left a stale doc like that in place would have
+risked it leaking into the paper as a wrong methodology description.
+
+**Verification:** `python -m py_compile skab.py` (syntax), launched the app
+headless and confirmed it serves HTTP 200 with no tracebacks in the log,
+and unit-tested the risky bits outside Streamlit (the pandas Styler that
+highlights the best row, the metrics.json parse, and the 4 figure paths) —
+all good.
+
+**Outcome (plain language):** You can now open the Streamlit app
+(`streamlit run skab.py`), click the new "Model Results" tab, and see the
+whole story in one place — which model won, the full comparison table, and
+all 4 charts with explanations of how to read them — without touching the
+terminal. Also caught and fixed an out-of-date description elsewhere in the
+app that would have contradicted our real method.

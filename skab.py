@@ -5,6 +5,7 @@ Run:  streamlit run skab.py
 
 import os
 import glob
+import json
 # pyrefly: ignore [missing-import]
 import numpy as np
 # pyrefly: ignore [missing-import]
@@ -22,6 +23,28 @@ from plotly.subplots import make_subplots
 # ─────────────────────────────────────────────────────────────────────────────
 
 SKAB_ROOT = "SKAB"
+
+RESULTS_DIR = "results"
+FIGURES_DIR = os.path.join(RESULTS_DIR, "figures")
+METRICS_PATH = os.path.join(RESULTS_DIR, "metrics.json")
+
+# Plain-English notes shown beneath each paper figure in the Model Results tab.
+RESULT_FIGURES = [
+    ("model_comparison.png", "How the 4 models compare",
+     "Each cluster is one score. Higher is better (max 1.0). The tall red bar "
+     "(IsolationForest) leading on recall and F1 is the paper's headline result."),
+    ("confusion_matrices.png", "What each model got right vs. wrong",
+     "Top-left = correctly called normal, bottom-right = correctly caught a fault. "
+     "Top-right = false alarms, bottom-left = missed faults. IsolationForest has the "
+     "fullest bottom-right (catches the most real faults)."),
+    ("timeseries_anomalies.png", "Predictions on one example run",
+     "Every sensor over time for one test run. Red shading = real fault periods, "
+     "orange dots = where IsolationForest flagged a fault. Dots inside red = correct "
+     "catches; dots outside = false alarms."),
+    ("anomaly_closeup.png", "Zoom into the moment a fault begins",
+     "The same run zoomed to ±30s around the fault onset (red dashed line). Watch "
+     "the flow-rate panel jump right at the line — the physical fault signature."),
+]
 
 SENSOR_COLS = [
     "Accelerometer1RMS", "Accelerometer2RMS", "Current", "Pressure",
@@ -414,13 +437,14 @@ else:
 # Tabs
 # ─────────────────────────────────────────────────────────────────────────────
 
-tab_quality, tab_sensors, tab_insights, tab_closeup, tab_summary, tab_model = st.tabs([
+tab_quality, tab_sensors, tab_insights, tab_closeup, tab_summary, tab_model, tab_results = st.tabs([
     "🩺 Data Quality",
     "📈 Sensor Graphs",
     "🧠 Insights",
     "🔍 Anomaly Close-up",
     "📊 All Files",
     "🤖 Model-Ready",
+    "🏆 Model Results",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -892,18 +916,21 @@ Based on the data characteristics, here are recommended features for your model:
         normal_rows = int((df["anomaly"] == 0).sum())
         anom_rows_count = int((df["anomaly"] == 1).sum())
         st.markdown(f"""
-**Recommended approach for SKAB anomaly detection:**
+**The split actually used by the research pipeline (`main.py`):**
 
 | Split | Source | Rows | Purpose |
 |---|---|---|---|
-| **Train** | `anomaly-free` only | ~9,400 | Learn what "normal" looks like |
-| **Validation** | 20% of fault files | ~7,500 | Tune threshold / hyperparams |
-| **Test** | 80% of fault files | ~30,000 | Final evaluation |
+| **Train** | `anomaly-free` + the *normal-labeled* rows from the first 80% (by time) of each fault file | ~28,400 | Learn what "normal" looks like (0% anomalies — see DEVLOG session 3) |
+| **Validation** | whole held-out fault files (~20% of files) | ~5,600 | Tune hyperparameters only (see DEVLOG session 4) |
+| **Test** | the last 20% (by time) of each fault file | ~7,500 | Final evaluation — never touched during training/tuning |
 
 **Why this split works:**
-- Training on only normal data fits anomaly detection models (Isolation Forest, Autoencoder, One-Class SVM)
-- Fault files contain both normal and anomalous periods — good for threshold tuning
-- You have **{normal_rows:,} normal** and **{anom_rows_count:,} anomalous** rows total
+- These models learn "normal" and flag deviations, so the training set is kept 100% normal (mixing in faults hurt every model — see the contamination fix in DEVLOG session 3).
+- Splitting each file chronologically (never shuffled) respects that this is time-series data.
+- Validation holds out *whole experiments* (not a time-slice) so its anomaly mix stays representative.
+- You have **{normal_rows:,} normal** and **{anom_rows_count:,} anomalous** rows total.
+
+See the **🏆 Model Results** tab for the actual scores.
         """)
     else:
         st.caption("Select **ALL** in the sidebar to see the recommended train/test split.")
@@ -920,3 +947,73 @@ Based on the data characteristics, here are recommended features for your model:
             file_name="skab_engineered_features.csv",
             mime="text/csv",
         )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 7 — Model Results (the actual 4-model comparison from main.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab_results:
+    st.subheader("🏆 Model Results — 4-Model Comparison")
+    st.caption(
+        "The real trained-model results from the research pipeline. "
+        "Run `python main.py` to (re)generate `results/metrics.json` and the figures, "
+        "then reload this page to see updated numbers."
+    )
+
+    if not os.path.exists(METRICS_PATH):
+        st.warning(
+            "No results found yet. Run **`python main.py`** from the project root "
+            "to train the 4 models and generate the metrics + figures, then reload."
+        )
+    else:
+        with open(METRICS_PATH) as f:
+            metrics = json.load(f)
+        mdf = pd.DataFrame(metrics)
+
+        best_row = mdf.loc[mdf["f1"].idxmax()]
+        best_model = best_row["model"]
+
+        # Headline metrics
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Best model (by F1)", best_model)
+        c2.metric("Best F1", f"{best_row['f1']:.3f}")
+        c3.metric("Its precision", f"{best_row['precision']:.3f}")
+        c4.metric("Its recall", f"{best_row['recall']:.3f}")
+
+        st.info(
+            f"💡 In plain English: **{best_model}** is the best of the 4 at catching faults "
+            f"without too many false alarms. **Recall {best_row['recall']:.2f}** means it caught "
+            f"about {best_row['recall']*100:.0f}% of the real faults; **precision {best_row['precision']:.2f}** "
+            f"means about {best_row['precision']*100:.0f}% of its fault alerts were correct. "
+            f"**F1 ({best_row['f1']:.2f})** balances those two into one number."
+        )
+
+        st.markdown("#### Comparison table")
+        st.caption(
+            "Precision = of the rows it flagged, how many were truly faults. "
+            "Recall = of the true faults, how many it caught. F1 = balance of the two. "
+            "Times show how long each model took to train and to predict the whole test set."
+        )
+        display = mdf[["model", "precision", "recall", "f1",
+                       "train_time_s", "inference_time_s"]].rename(columns={
+            "model": "Model", "precision": "Precision", "recall": "Recall", "f1": "F1",
+            "train_time_s": "Train time (s)", "inference_time_s": "Inference time (s)",
+        })
+        styler = (display.style
+                  .format({"Precision": "{:.3f}", "Recall": "{:.3f}", "F1": "{:.3f}",
+                           "Train time (s)": "{:.3f}", "Inference time (s)": "{:.3f}"})
+                  .highlight_max(subset=["F1"], color="#FEF3C7"))
+        st.dataframe(styler, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("#### Figures (the same PNGs that go into the paper)")
+
+        for fname, title, explanation in RESULT_FIGURES:
+            fpath = os.path.join(FIGURES_DIR, fname)
+            st.markdown(f"**{title}**")
+            if os.path.exists(fpath):
+                st.image(fpath, use_container_width=True)
+                st.caption(explanation)
+            else:
+                st.caption(f"_`{fname}` not found — run `python main.py` to generate it._")
+            st.markdown("")

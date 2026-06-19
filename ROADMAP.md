@@ -134,12 +134,17 @@ jump still illustrate the transition. `run_all_models` gained a
 `return_predictions=True` option so figures reuse the fitted predictions
 instead of re-fitting.
 
-### [ ] C2. Surface results inside `skab.py`'s Streamlit app
-**What:** A new section/tab in the existing Streamlit explorer showing the
-model comparison table and figures, so results are reviewable visually
-instead of only via terminal output or `results/metrics.json` — per
-Sarjan's stated preference.
-**Depends on:** C1.
+### [x] C2. Surface results inside `skab.py`'s Streamlit app
+**What:** A new "🏆 Model Results" tab in the existing Streamlit explorer.
+**Done.** The tab reads `results/metrics.json` and shows: headline metrics
+(best model + its precision/recall/F1) with a plain-English gloss, the full
+4-model comparison table (best F1 row highlighted), and the 4 paper PNGs
+from `results/figures/` each with a plain-English caption. Falls back to a
+"run main.py" prompt if results don't exist yet. Also corrected the now-
+stale train/test split table in the older "🤖 Model-Ready" tab, which had
+described an outdated (and backwards) split that contradicted the actual
+pipeline. Verified the app launches cleanly (HTTP 200, no tracebacks) and
+unit-tested the table/figure logic.
 
 ### [ ] C3. (Optional/low-priority) Model persistence
 **What:** Save fitted models via `joblib` to `results/models/` for
@@ -195,10 +200,10 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: C2 — surface results inside `skab.py`'s Streamlit app.** The
-numbers (B1-B4) and figures (C1) are done; the remaining results-side work
-is a new tab/section in the existing Streamlit explorer showing the model
-comparison table + figures, so results are reviewable visually instead of
-only via terminal/`results/metrics.json` (Sarjan's stated preference).
-Paper writing (Phase D) can also start in parallel now — D1 (Dataset) and
-D4 (Related Work) don't depend on anything else.
+**Next task: start Phase D — paper writing.** All of the modeling (B) and
+results/visualization (C1-C2) work is done; C3 (model persistence) is
+optional/low-priority. The highest-leverage remaining work is drafting the
+paper, easiest sections first: D1 (Dataset) and D4 (Related Work) don't
+depend on anything else and can start immediately; D2 (Methodology) and D3
+(Results) can pull directly from DEVLOG.md + results/metrics.json + the
+figures.
