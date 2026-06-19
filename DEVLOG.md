@@ -249,3 +249,57 @@ for the paper's central claim. We also hit the same "model is just crying
 wolf" trap twice more during this session (once in the validation split,
 once in the sweep itself), which is worth remembering as a recurring
 thing to check for, not a one-off.
+
+---
+
+## Session 5 — 2026-06-20 — Paper-quality figures (ROADMAP C1)
+
+**Goal:** Now that the numbers are tuned and stable, produce the figures
+the paper needs, saved as high-resolution (300 DPI) PNGs.
+
+**Steps taken:**
+1. Added a `return_predictions=True` option to
+   `evaluate.run_all_models` so the figure code can reuse the predictions
+   the models already made, instead of re-fitting them just to draw plots.
+2. Wrote `src/visualize.py` (a new file — kept separate from the older
+   `visualize.py` CLI tool at repo root) with 4 plotting functions:
+   - **model_comparison**: grouped bar chart, precision/recall/F1 with one
+     bar per model.
+   - **confusion_matrices**: a 2×2 grid of heatmaps, one per model,
+     showing how many normal/anomalous rows each got right vs. wrong.
+   - **time_series_with_anomalies**: for one example test run, every
+     sensor's signal over time, with the true anomaly stretches shaded red
+     and the model's predicted anomalies marked as orange dots.
+   - **anomaly_closeup**: the same idea zoomed into ±30 seconds around the
+     moment a fault begins (the "changepoint"), with a red dashed line at
+     that moment.
+3. Wired all 4 into `main.py` so they regenerate on every pipeline run,
+   driven by IsolationForest's predictions (the paper's proposed model)
+   and an auto-picked example file.
+
+**Decisions worth noting:**
+- **Which example file to show:** rather than hardcode one, added
+  `select_showcase_file()` — it prefers a test run that actually contains
+  a changepoint (so the close-up has a real transition to draw) and, among
+  those, the most balanced normal/anomaly mix so both show up in the plot.
+  It picked `valve1/7`.
+- **Row alignment safety:** the figures attach each model's predictions
+  back onto the test data as a column, which only works if the prediction
+  array lines up row-for-row with the test rows. It does (because of how
+  the data is grouped before features are built), but I added an assertion
+  in `main.py` so that if a future change ever breaks that alignment, it
+  fails loudly instead of silently drawing wrong dots.
+
+**Verified:** ran `main.py`, opened all 4 PNGs, confirmed they're correct
+and readable. The confusion matrix confirms the story numerically —
+IsolationForest catches 1709 of 2252 real anomalies (the best of the 4),
+while keeping false alarms comparable to the others.
+
+**Outcome (plain language):** We now auto-generate the 4 charts the paper
+will use, every time we run the pipeline, at print quality. They visually
+back up the headline result: IsolationForest is the best of the 4 at
+actually catching faults. One small cosmetic caveat noted in ROADMAP for
+later — the zoomed-in close-up can sometimes be fully inside a fault
+stretch (so the whole background is shaded), depending on which file is
+auto-picked; it still clearly shows the fault's physical signature (a jump
+in flow rate right at the changepoint line).

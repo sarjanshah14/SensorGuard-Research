@@ -20,11 +20,16 @@ def evaluate(y_true, y_pred, model_name: str) -> dict:
     }
 
 
-def run_all_models(X_train, X_test, y_test) -> list[dict]:
+def run_all_models(X_train, X_test, y_test, return_predictions: bool = False):
     """Train+predict every model in MODELS on identical X, return one
     result dict per model with metrics + train/inference timing (seconds).
+
+    With return_predictions=True, also returns a {model_name: y_pred} dict
+    so callers can plot per-file predictions without re-fitting. Each y_pred
+    is row-aligned with X_test.
     """
     results = []
+    predictions = {}
     for name, (train_fn, predict_fn) in MODELS.items():
         t0 = time.perf_counter()
         state = train_fn(X_train)
@@ -38,6 +43,9 @@ def run_all_models(X_train, X_test, y_test) -> list[dict]:
         result["train_time_s"] = train_time
         result["inference_time_s"] = inference_time
         results.append(result)
+        predictions[name] = y_pred
+    if return_predictions:
+        return results, predictions
     return results
 
 

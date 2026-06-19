@@ -22,6 +22,28 @@ from src.preprocessing import chronological_split, load_anomaly_free, load_skab_
 from src.features import build_features
 from src.models import scale_features
 from src.evaluate import compare_models, run_all_models
+from src.visualize import (
+    plot_anomaly_closeup,
+    plot_confusion_matrices,
+    plot_model_comparison,
+    plot_time_series_with_anomalies,
+)
+
+SHOWCASE_MODEL = "IsolationForest"  # the paper's proposed model — used for the per-file figures
+
+
+def select_showcase_file(test_df: pd.DataFrame) -> str:
+    """Pick one test run for the illustrative per-file figures: prefer a run
+    whose test slice contains a marked changepoint (so the close-up has a
+    real transition to draw), and among those the most balanced normal/
+    anomaly mix (anomaly rate nearest 0.5) so the plot shows both.
+    """
+    stats = []
+    for fname, g in test_df.groupby("source_file", sort=False):
+        stats.append((fname, g["changepoint"].sum() > 0, g["anomaly"].mean()))
+    with_cp = [s for s in stats if s[1]]
+    pool = with_cp or stats
+    return min(pool, key=lambda s: abs(s[2] - 0.5))[0]
 
 
 def main():
@@ -47,11 +69,37 @@ def main():
 
     X_train_scaled, X_test_scaled, _ = scale_features(X_train, X_test)
 
-    results = run_all_models(X_train_scaled, X_test_scaled, y_test)
+    results, predictions = run_all_models(
+        X_train_scaled, X_test_scaled, y_test, return_predictions=True
+    )
     comparison = compare_models(results)
 
     print(f"\n{len(feature_names)} features: {feature_names}\n")
     print(comparison.to_string(index=False))
+
+    # --- figures (ROADMAP C1) ---
+    # build_features(test_df, group_col=...) preserves test_df's row order
+    # (test_df already has contiguous per-source_file blocks from
+    # chronological_split, and groupby(sort=False) keeps that order), so the
+    # prediction arrays are row-aligned with test_df and can be attached as
+    # a column. The assert guards that invariant against future refactors.
+    assert len(predictions[SHOWCASE_MODEL]) == len(test_df)
+    test_df = test_df.copy()
+    test_df["pred"] = predictions[SHOWCASE_MODEL]
+
+    showcase = select_showcase_file(test_df)
+    showcase_df = test_df[test_df["source_file"] == showcase]
+
+    paths = [
+        plot_model_comparison(results),
+        plot_confusion_matrices(results),
+        plot_time_series_with_anomalies(showcase_df, "pred", SHOWCASE_MODEL),
+        plot_anomaly_closeup(showcase_df, "pred", SHOWCASE_MODEL),
+    ]
+    print(f"\nshowcase file: {showcase}")
+    print("figures written:")
+    for p in paths:
+        print(f"  {p}")
 
 
 if __name__ == "__main__":

@@ -10,8 +10,8 @@
       "fn": 928,
       "tp": 1324
     },
-    "train_time_s": 0.00136900000507012,
-    "inference_time_s": 0.0004320000298321247
+    "train_time_s": 0.0014509999891743064,
+    "inference_time_s": 0.00048820796655490994
   },
   {
     "model": "One-Class SVM",
@@ -24,8 +24,8 @@
       "fn": 1009,
       "tp": 1243
     },
-    "train_time_s": 7.600393583008554,
-    "inference_time_s": 2.1048924579517916
+    "train_time_s": 7.975033333001193,
+    "inference_time_s": 2.3199560830253176
   },
   {
     "model": "LOF",
@@ -38,8 +38,8 @@
       "fn": 1203,
       "tp": 1049
     },
-    "train_time_s": 0.33144770801300183,
-    "inference_time_s": 0.1462448330130428
+    "train_time_s": 0.5530538749881089,
+    "inference_time_s": 0.17527729202993214
   },
   {
     "model": "IsolationForest",
@@ -52,7 +52,7 @@
       "fn": 543,
       "tp": 1709
     },
-    "train_time_s": 0.10644825000781566,
-    "inference_time_s": 0.014073459024075419
+    "train_time_s": 0.11302708397852257,
+    "inference_time_s": 0.014487750013358891
   }
 ]

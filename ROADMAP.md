@@ -116,12 +116,23 @@ value). Final numbers on the untouched test set: IsolationForest F1
 
 ## Phase C — Results, Visualization, and the Streamlit App
 
-### [ ] C1. Paper-quality figures
-**What:** A real `src/visualize.py` (distinct from the existing
-`visualize.py` CLI) producing: time-series-with-predicted-vs-true-anomalies,
-a grouped bar chart comparing the 4 models on precision/recall/F1, and
-confusion-matrix heatmaps — saved as 300 DPI PNGs to `results/figures/`.
-**Depends on:** B3/B4 (no point finalizing figures on numbers about to change).
+### [x] C1. Paper-quality figures
+**What:** `src/visualize.py` (distinct from the existing `visualize.py`
+CLI) with 4 functions, all saving 300 DPI PNGs to `results/figures/`:
+`plot_model_comparison` (grouped bar, precision/recall/F1 × 4 models),
+`plot_confusion_matrices` (2×2 heatmap grid), `plot_time_series_with_anomalies`
+(per-sensor traces, true-anomaly shading, predicted-anomaly dots), and
+`plot_anomaly_closeup` (±30s around the first changepoint, with the
+changepoint drawn as a vertical line). `main.py` now generates all 4 at
+the end of a run, using IsolationForest's predictions and an
+auto-selected showcase test file (`select_showcase_file`: prefers a run
+with a changepoint and a balanced anomaly mix — picked `valve1/7`).
+**Done.** Verified all 4 render correctly. Note for later polish: the
+close-up's window can land entirely inside a sustained-anomaly region
+(fully shaded) depending on the file; the changepoint line + flow-rate
+jump still illustrate the transition. `run_all_models` gained a
+`return_predictions=True` option so figures reuse the fitted predictions
+instead of re-fitting.
 
 ### [ ] C2. Surface results inside `skab.py`'s Streamlit app
 **What:** A new section/tab in the existing Streamlit explorer showing the
@@ -184,7 +195,10 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: C1 — paper-quality figures.** Numbers are now tuned and
-stable (B1-B4 all done), so it's safe to lock in `src/visualize.py`
-(time-series-with-anomalies, model-comparison bar chart, confusion-matrix
-heatmaps) without redoing them when results change later.
+**Next task: C2 — surface results inside `skab.py`'s Streamlit app.** The
+numbers (B1-B4) and figures (C1) are done; the remaining results-side work
+is a new tab/section in the existing Streamlit explorer showing the model
+comparison table + figures, so results are reviewable visually instead of
+only via terminal/`results/metrics.json` (Sarjan's stated preference).
+Paper writing (Phase D) can also start in parallel now — D1 (Dataset) and
+D4 (Related Work) don't depend on anything else.
