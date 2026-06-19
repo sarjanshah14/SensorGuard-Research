@@ -17,7 +17,7 @@ Industrial machines have sensors, and those sensors can signal faults. We took
 a **real** public dataset of a pump/pipe/valve rig with sensors (called
 **SKAB**) and asked: can a machine-learning model *learn what normal looks
 like* and then flag faults, better than a simple statistical rule? We compare
-**4 methods** and show the smartest one (**Isolation Forest**) wins.
+**6 methods** and show the smartest one (**Isolation Forest**) wins.
 
 **The paper's one-line claim:** *"On a real industrial sensor benchmark,
 learned anomaly-detection models — especially Isolation Forest — detect faults
@@ -79,7 +79,7 @@ research/
 ├── src/                      the actual pipeline code
 │   ├── preprocessing.py      loads the data, splits train/test by time
 │   ├── features.py           turns raw sensors into model inputs (41 features)
-│   ├── models.py             the 4 models (Z-score, One-Class SVM, LOF, Isolation Forest)
+│   ├── models.py             the 6 models (Z-score, One-Class SVM, LOF, PCA-recon, Elliptic Envelope, Isolation Forest)
 │   ├── evaluate.py           scores the models (precision/recall/F1)
 │   ├── postprocess.py        the smoothing idea we tested (and rejected)
 │   └── visualize.py          makes the 4 paper figures
@@ -90,7 +90,7 @@ research/
 │   ├── temporal_smoothing.py             (a fix we tried, rejected)
 │   └── feature_ablation.py               (how we caught the data leak)
 ├── results/
-│   ├── metrics.json          THE NUMBERS (precision/recall/F1 for all 4 models)
+│   ├── metrics.json          THE NUMBERS (precision/recall/F1 for all 6 models)
 │   └── figures/              THE CHARTS (4 PNGs, see §7)
 ├── skab.py                   the Streamlit visual app (incl. "Model Results" tab)
 ├── ROADMAP.md / DEVLOG.md / PROGRESS.md    the logs
@@ -145,17 +145,25 @@ but more false alarms (precision ↓), and vice-versa. F1 balances them.
 
 ### The official numbers (from `results/metrics.json`)
 
+Sorted best to worst by F1 (all share the same contamination=0.35 setting):
+
 | Model | Precision | Recall | F1 | What it is |
 |---|---|---|---|---|
+| **Isolation Forest** | **0.362** | **0.656** | **0.466** | **the proposed/best model** |
+| Elliptic Envelope | 0.342 | 0.539 | 0.418 | robust Gaussian (Mahalanobis), runner-up |
 | Z-score | 0.329 | 0.548 | 0.411 | the "dumb" statistical baseline |
 | One-Class SVM | 0.326 | 0.537 | 0.406 | an intermediate ML method |
-| LOF | 0.321 | 0.460 | 0.378 | another intermediate ML method |
-| **Isolation Forest** | **0.362** | **0.656** | **0.466** | **the proposed/best model** |
+| LOF | 0.321 | 0.460 | 0.378 | density-based ML method |
+| PCA-recon | 0.305 | 0.470 | 0.370 | reconstruction-error method |
 
 **How to read this:** Isolation Forest has the best F1 (0.466) and by far the
 best recall (0.656) — it catches ~66% of real faults, more than any other
 method, while keeping precision comparable to the rest. That's the paper's
-result: the smartest model wins.
+result: the smartest model wins. The two models we added later (Elliptic
+Envelope and PCA-recon) are "theoretically" higher-ranked methods that capture
+sensor correlations — but on our engineered features they did **not** beat
+Isolation Forest (Elliptic Envelope came 2nd; PCA-recon last). That's an honest
+finding worth reporting, not a failure.
 
 **Being honest about the absolute level:** these scores are *modest* — none is
 near-perfect. Precision is ~0.36, meaning roughly 1 in 3 alarms is a real fault
@@ -174,17 +182,17 @@ and exactly how to read it.
 
 ### 7.1 `model_comparison.png` — the headline chart
 - **What it shows:** a bar chart with three groups (Precision, Recall, F1).
-  Within each group, 4 bars — one per model.
+  Within each group, 6 bars — one per model.
 - **Why it exists:** it's the single picture that proves the paper's claim.
 - **How to read it:** find the **F1** group on the right. The tallest bar is
-  **Isolation Forest** (red). Now look at the **Recall** group — Isolation
-  Forest is clearly tallest there too. That's the story: it catches the most
-  faults and has the best overall balance.
+  **Isolation Forest** (far right of each cluster). Now look at the **Recall**
+  group — Isolation Forest is clearly tallest there too. That's the story: it
+  catches the most faults and has the best overall balance.
 - **What to ignore:** don't expect any bar near 1.0 — see the honesty note in
   §6. Relative height between models is the point, not absolute height.
 
 ### 7.2 `confusion_matrices.png` — where each model's mistakes are
-- **What it shows:** four 2×2 grids, one per model. Each grid is the breakdown
+- **What it shows:** six 2×2 grids, one per model. Each grid is the breakdown
   of correct vs. wrong calls:
   - top-left = correctly said "normal"
   - bottom-right = correctly caught a fault
@@ -263,7 +271,7 @@ work in ROADMAP B5.
 ## 9. What's done and what's next
 
 **Done:** the entire data + modeling + results pipeline. Data loading, feature
-engineering, all 4 models, settings tuned honestly, leakage removed, figures
+engineering, all 6 models, settings tuned honestly, leakage removed, figures
 generated, and everything viewable in the Streamlit app.
 
 **Not done:** the **written paper** (ROADMAP Phase D) — Dataset section,

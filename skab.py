@@ -30,9 +30,10 @@ METRICS_PATH = os.path.join(RESULTS_DIR, "metrics.json")
 
 # Plain-English notes shown beneath each paper figure in the Model Results tab.
 RESULT_FIGURES = [
-    ("model_comparison.png", "How the 4 models compare",
-     "Each cluster is one score. Higher is better (max 1.0). The tall red bar "
-     "(IsolationForest) leading on recall and F1 is the paper's headline result."),
+    ("model_comparison.png", "How the 6 models compare",
+     "Each cluster is one score. Higher is better (max 1.0). The tallest bar "
+     "(IsolationForest, far right of each cluster) leading on recall and F1 is "
+     "the paper's headline result."),
     ("confusion_matrices.png", "What each model got right vs. wrong",
      "Top-left = correctly called normal, bottom-right = correctly caught a fault. "
      "Top-right = false alarms, bottom-left = missed faults. IsolationForest has the "

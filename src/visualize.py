@@ -25,7 +25,8 @@ from src.features import SENSOR_COLS
 
 FIGURES_DIR = "results/figures"
 DPI = 300
-MODEL_ORDER = ["Z-score", "One-Class SVM", "LOF", "IsolationForest"]
+MODEL_ORDER = ["Z-score", "One-Class SVM", "LOF", "PCA-recon",
+               "EllipticEnvelope", "IsolationForest"]
 TRUE_SHADE = "#EF4444"      # red — ground-truth anomaly regions
 PRED_COLOR = "#F97316"      # orange — predicted anomaly points
 
@@ -52,7 +53,7 @@ def plot_model_comparison(results, out_path=None):
     df = pd.DataFrame(results)[["model", "precision", "recall", "f1"]]
     long = df.melt(id_vars="model", var_name="metric", value_name="score")
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(11, 5))
     sns.barplot(data=long, x="metric", y="score", hue="model",
                 hue_order=MODEL_ORDER, ax=ax)
     ax.set_title("Model comparison on SKAB test set")
@@ -71,7 +72,7 @@ def plot_confusion_matrices(results, out_path=None):
     out_path = out_path or os.path.join(FIGURES_DIR, "confusion_matrices.png")
     by_name = {r["model"]: r for r in results}
 
-    fig, axes = plt.subplots(2, 2, figsize=(9, 8))
+    fig, axes = plt.subplots(2, 3, figsize=(13, 8))
     for ax, name in zip(axes.ravel(), MODEL_ORDER):
         cm = by_name[name]["confusion_matrix"]
         matrix = np.array([[cm["tn"], cm["fp"]], [cm["fn"], cm["tp"]]])

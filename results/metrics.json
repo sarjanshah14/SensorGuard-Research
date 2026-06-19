@@ -10,8 +10,8 @@
       "fn": 1017,
       "tp": 1235
     },
-    "train_time_s": 0.0012843329459428787,
-    "inference_time_s": 0.0004900420317426324
+    "train_time_s": 0.0022029579849913716,
+    "inference_time_s": 0.0005869999877177179
   },
   {
     "model": "One-Class SVM",
@@ -24,8 +24,8 @@
       "fn": 1042,
       "tp": 1210
     },
-    "train_time_s": 7.352771708974615,
-    "inference_time_s": 2.0733478750335053
+    "train_time_s": 7.3595382499624975,
+    "inference_time_s": 2.205167582957074
   },
   {
     "model": "LOF",
@@ -38,8 +38,36 @@
       "fn": 1217,
       "tp": 1035
     },
-    "train_time_s": 0.333677250018809,
-    "inference_time_s": 0.13841533398954198
+    "train_time_s": 0.3292469999869354,
+    "inference_time_s": 0.13530858303420246
+  },
+  {
+    "model": "PCA-recon",
+    "precision": 0.3050115207373272,
+    "recall": 0.4702486678507993,
+    "f1": 0.370020964360587,
+    "confusion_matrix": {
+      "tn": 2838,
+      "fp": 2413,
+      "fn": 1193,
+      "tp": 1059
+    },
+    "train_time_s": 0.005287791951559484,
+    "inference_time_s": 0.000962416990660131
+  },
+  {
+    "model": "EllipticEnvelope",
+    "precision": 0.3418827508455468,
+    "recall": 0.5386323268206039,
+    "f1": 0.4182758620689655,
+    "confusion_matrix": {
+      "tn": 2916,
+      "fp": 2335,
+      "fn": 1039,
+      "tp": 1213
+    },
+    "train_time_s": 0.5075902079697698,
+    "inference_time_s": 0.00074637500802055
   },
   {
     "model": "IsolationForest",
@@ -52,7 +80,7 @@
       "fn": 775,
       "tp": 1477
     },
-    "train_time_s": 0.10690049995901063,
-    "inference_time_s": 0.01435266702901572
+    "train_time_s": 0.10304691700730473,
+    "inference_time_s": 0.013910542009398341
   }
 ]

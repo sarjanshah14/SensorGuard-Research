@@ -26,6 +26,8 @@ the best non-degenerate value found (recall first drops below 1.0 at 2.0).
 from dataclasses import dataclass
 
 import numpy as np
+from sklearn.covariance import EllipticEnvelope
+from sklearn.decomposition import PCA
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
@@ -101,9 +103,66 @@ def predict_lof(model: LocalOutlierFactor, X: np.ndarray) -> np.ndarray:
     return (model.predict(X) == -1).astype(int)
 
 
+@dataclass
+class PCAReconParams:
+    pca: PCA
+    threshold: float
+
+
+def train_pca_recon(X_train: np.ndarray, contamination: float = DEFAULT_CONTAMINATION,
+                    n_components: float = 0.95) -> PCAReconParams:
+    """PCA reconstruction-error detector. Learns a low-dimensional summary of
+    normal data; faults reconstruct poorly, so a large reconstruction error
+    flags them. Unlike the point-based methods this explicitly models the
+    correlation structure between sensors. The threshold is the
+    (1 - contamination) quantile of the training reconstruction errors.
+    n_components=0.95 keeps enough components to explain 95% of variance.
+    """
+    pca = PCA(n_components=n_components, random_state=RANDOM_STATE)
+    pca.fit(X_train)
+    recon = pca.inverse_transform(pca.transform(X_train))
+    errors = ((X_train - recon) ** 2).sum(axis=1)
+    threshold = float(np.quantile(errors, 1 - contamination))
+    return PCAReconParams(pca=pca, threshold=threshold)
+
+
+def predict_pca_recon(params: PCAReconParams, X: np.ndarray) -> np.ndarray:
+    recon = params.pca.inverse_transform(params.pca.transform(X))
+    errors = ((X - recon) ** 2).sum(axis=1)
+    return (errors > params.threshold).astype(int)
+
+
+@dataclass
+class EllipticParams:
+    pca: PCA
+    model: EllipticEnvelope
+
+
+def train_elliptic_envelope(X_train: np.ndarray, contamination: float = DEFAULT_CONTAMINATION,
+                           n_components: int = 10) -> EllipticParams:
+    """Robust Gaussian (Mahalanobis-distance) detector: fits an ellipse around
+    the normal data and flags points outside it. Our 41 features are partly
+    collinear (rolling means track raw values), which makes the raw covariance
+    singular and Mahalanobis distance blow up — so we first PCA-whiten to a
+    handful of decorrelated components, where the covariance is well-conditioned.
+    """
+    pca = PCA(n_components=n_components, whiten=True, random_state=RANDOM_STATE)
+    Z = pca.fit_transform(X_train)
+    model = EllipticEnvelope(contamination=contamination, support_fraction=1.0,
+                             random_state=RANDOM_STATE)
+    model.fit(Z)
+    return EllipticParams(pca=pca, model=model)
+
+
+def predict_elliptic_envelope(params: EllipticParams, X: np.ndarray) -> np.ndarray:
+    return (params.model.predict(params.pca.transform(X)) == -1).astype(int)
+
+
 MODELS = {
     "Z-score": (train_zscore, predict_zscore),
     "One-Class SVM": (train_one_class_svm, predict_one_class_svm),
     "LOF": (train_lof, predict_lof),
+    "PCA-recon": (train_pca_recon, predict_pca_recon),
+    "EllipticEnvelope": (train_elliptic_envelope, predict_elliptic_envelope),
     "IsolationForest": (train_isolation_forest, predict_isolation_forest),
 }

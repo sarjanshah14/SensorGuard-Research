@@ -417,3 +417,55 @@ itself a good, honest detail to mention in the paper's methodology. Two
 small ablation scripts (`experiments/temporal_smoothing.py`,
 `experiments/feature_ablation.py`) are kept as the evidence behind these
 decisions.
+
+---
+
+## Session 8 — 2026-06-20 — Two more models: can anything beat Isolation Forest? (ROADMAP B6)
+
+**Goal:** Sarjan asked which models rank *above* Isolation Forest in theory
+are also cost-free and feasible for us, and whether any would actually top
+it. The only feasible candidates (scikit-learn, no GPU, no scope change)
+were **PCA reconstruction-error** and **Elliptic Envelope** (robust
+Mahalanobis distance) — both model the correlation *between* sensors, which
+is the structure Isolation Forest doesn't directly use.
+
+**Steps taken:**
+1. Added `train/predict_pca_recon` and `train/predict_elliptic_envelope` to
+   `src/models.py`, and `experiments/extra_models.py` to tune each one's
+   contamination on the validation files and evaluate on the locked test set
+   alongside the original 4.
+
+**Issue hit:** Elliptic Envelope exploded numerically — 26 MB of
+`slogdet` divide-by-zero / overflow warnings. Cause: our 41 features are
+partly redundant (each sensor's rolling-mean tracks its raw value), so the
+covariance matrix is singular and the Mahalanobis distance it relies on is
+undefined. **Fix:** PCA-whiten to 10 decorrelated components first, then fit
+Elliptic Envelope there — a standard, numerically-stable way to do
+Mahalanobis on collinear data. Re-ran clean.
+
+**Result — neither beat Isolation Forest.** Even given their own
+validation-best setting, on the test set: IsolationForest F1 0.466, Elliptic
+Envelope 0.435, PCA-recon 0.411 (the rest below). With the shared
+contamination=0.35 used in the official pipeline: IsolationForest 0.466 >
+Elliptic Envelope 0.418 > Z-score 0.411 > One-Class SVM 0.406 > LOF 0.378 >
+PCA-recon 0.370. Interpretation: their theoretical advantage comes from
+modeling raw sensor *sequences*, but we feed engineered tabular features, so
+that advantage doesn't materialize here.
+
+**Decision:** keep both anyway, as extra comparison points (not as the
+proposed model). This upgrades the study from 4 models to **6**, which is
+more rigorous and more convincing — "we tested six classical methods and
+Isolation Forest won" is a stronger sentence than "we tested four." Updated
+`src/visualize.py` for 6 models (wider bar chart, 2×3 confusion grid) and
+regenerated the official `results/metrics.json` + figures. Verified both
+figures render correctly.
+
+**Outcome (plain language):** We tried the two best *feasible* models that,
+on paper, should beat Isolation Forest. Neither did on our data — and we
+now understand why (they need the raw time-signal, which our feature setup
+doesn't hand them). Rather than throw that away, we kept them in the
+comparison, so the paper now compares six methods with Isolation Forest
+still on top. Along the way we hit and fixed a real numerical breakdown in
+Elliptic Envelope (singular covariance), which is itself a small, honest
+methods detail. **Modeling is now genuinely finished — next stop is writing
+the paper.**

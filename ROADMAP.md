@@ -145,6 +145,28 @@ keep it. Modeling is done.** (Minor noted caveat: contamination=0.35 was
 tuned on the 43-feature set; kept as-is since it's a coarse knob — a full
 re-tune on 41 features is optional future work.)
 
+### [x] B6. Add two higher-ranked classical models (PCA-recon, Elliptic Envelope)
+**What:** Sarjan asked whether any model ranked above Isolation Forest is
+cost-free, feasible, and could top it. The only feasible (scikit-learn, no
+GPU, in-scope) candidates were PCA reconstruction-error and Elliptic
+Envelope (robust Mahalanobis), both of which model sensor *correlations*.
+**Resolved (`experiments/extra_models.py`, both added to `src/models.py`):**
+- Elliptic Envelope's covariance was singular on our 41 partly-collinear
+  features (slogdet blew up); fixed by PCA-whitening to 10 components first
+  — a standard, numerically-sound Mahalanobis setup.
+- Both tuned fairly (contamination on the validation files). Even at their
+  own validation-best (0.5), **neither beat Isolation Forest** on the test
+  set. Their theoretical edge comes from modeling raw sequences/correlations
+  that our engineered tabular features don't expose.
+- **Decision:** keep both as comparison points (not as the proposed model),
+  turning this into a **6-model** study. `visualize.py` updated (bar chart +
+  2×3 confusion grid). Official results regenerated with all 6 sharing
+  contamination=0.35.
+**Final official 6-model test F1:** IsolationForest **0.466** > Elliptic
+Envelope 0.418 > Z-score 0.411 > One-Class SVM 0.406 > LOF 0.378 > PCA-recon
+0.370. IsolationForest is still the clear winner; the broader comparison
+makes the paper more rigorous. **Modeling is now genuinely done.**
+
 ## Phase C — Results, Visualization, and the Streamlit App
 
 ### [x] C1. Paper-quality figures
