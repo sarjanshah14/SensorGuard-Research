@@ -6,10 +6,21 @@ them uniformly with an identical, pre-scaled feature matrix. None of the
 train_* functions see labels — these are genuinely unsupervised fits, not
 just "unsupervised at test time."
 
-contamination/nu default to 0.1 as a literature-informed nominal anomaly
-rate, not something fit from labels (that would quietly leak supervision
-into an "unsupervised" method) — it's a named, overridable constant instead
-of a magic number buried in a call site.
+contamination/nu/threshold defaults below were tuned via
+experiments/hyperparameter_sweep.py on a validation split carved out with
+file_holdout_split (never the test set). DEFAULT_CONTAMINATION=0.35 comes
+from IsolationForest's validation sweep, which had a genuine interior
+peak (F1 rose then fell as contamination increased) — the most trustworthy
+signal we had — and is applied to all 3 contamination/nu-based models for
+a consistent shared anomaly-rate assumption. One-Class SVM's nu and LOF's
+contamination, swept independently, never turned over before hitting
+sklearn's 0.5 ceiling — i.e. they kept "improving" by flagging more and
+more rows right up to the limit, the same "flag almost everything" failure
+mode flagged in DEVLOG.md session 3, so their sweep "winners" (nu=0.5,
+contamination=0.5) were rejected in favor of IsolationForest's real peak.
+Z-score's sweep winner (threshold=0.5) had recall=100% — the exact
+signature of flagging everything — also rejected; ZSCORE_THRESHOLD=2.0 is
+the best non-degenerate value found (recall first drops below 1.0 at 2.0).
 """
 
 from dataclasses import dataclass
@@ -20,7 +31,8 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
-DEFAULT_CONTAMINATION = 0.1
+DEFAULT_CONTAMINATION = 0.35
+ZSCORE_THRESHOLD = 2.0
 RANDOM_STATE = 42
 
 
@@ -42,7 +54,7 @@ class ZScoreParams:
     threshold: float
 
 
-def train_zscore(X_train: np.ndarray, threshold: float = 3.0) -> ZScoreParams:
+def train_zscore(X_train: np.ndarray, threshold: float = ZSCORE_THRESHOLD) -> ZScoreParams:
     mean = X_train.mean(axis=0)
     std = X_train.std(axis=0)
     std[std == 0] = 1.0  # constant columns would otherwise divide by zero

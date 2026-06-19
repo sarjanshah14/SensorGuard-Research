@@ -88,14 +88,29 @@ IsolationForest F1 0.350 (up from 0.334), all 4 models improved, no
 degenerate "flag everything" behavior. See `DEVLOG.md` session 3 for the
 full comparison table.
 
-### [ ] B4. Hyperparameter sweep
-**What:** `contamination`/`nu` (currently fixed at 0.1) and LOF's
-`n_neighbors` (currently 20) were carried over from the old hackathon code
-as reasonable defaults, not tuned for SKAB. Once B3 settles the training
-data, sweep these on a validation slice (carved out of train, never touching
-test) and report sensitivity.
-**Depends on:** B3 (no point tuning hyperparameters on the wrong training
-distribution).
+### [x] B4. Hyperparameter sweep
+**What:** `contamination`/`nu` (was fixed at 0.1) and LOF's `n_neighbors`/
+Z-score's `threshold` were carried over as nominal defaults, never tuned
+for SKAB.
+**Resolved:** `experiments/hyperparameter_sweep.py` carves out a
+validation slice via `file_holdout_split` (whole experiments held out, not
+a time-slice — see note below) and sweeps each hyperparameter. First
+attempt at the validation split used a time-slice instead and produced a
+98%-anomalous validation set (SKAB runs have a sustained-fault block in
+their back half; the slice landed inside it) — switched to holding out
+whole files, which gave a representative 38% anomaly rate. Sweep results
+required judgment, not blind argmax: IsolationForest's contamination sweep
+had a genuine interior peak (0.35), but One-Class SVM's nu and LOF's
+contamination swept all the way to sklearn's 0.5 ceiling without ever
+turning over — the same "flag almost everything" failure mode from B3 —
+and Z-score's top scorer (threshold=0.5) had recall=100%, the exact
+signature of flagging everything. Adopted contamination=0.35 (from
+IsolationForest's real peak) across all 3 contamination/nu-based models
+for consistency, kept LOF's n_neighbors=20 (sweep gains beyond it were
+marginal/noisy), and set Z-score threshold=2.0 (best non-degenerate
+value). Final numbers on the untouched test set: IsolationForest F1
+0.350 -> 0.496, Z-score 0.248 -> 0.410, One-Class SVM 0.279 -> 0.410, LOF
+0.257 -> 0.381 — all 4 improved, none show the flag-everything signature.
 
 ---
 
@@ -169,8 +184,7 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: B4 — hyperparameter sweep.** `contamination`/`nu` (0.1) and
-LOF's `n_neighbors` (20) are still carried-over defaults, not tuned for
-SKAB. Now that B3 has settled the training data, this is the next
-highest-leverage step before figures/Methodology lock in numbers that
-would need revisiting.
+**Next task: C1 — paper-quality figures.** Numbers are now tuned and
+stable (B1-B4 all done), so it's safe to lock in `src/visualize.py`
+(time-series-with-anomalies, model-comparison bar chart, confusion-matrix
+heatmaps) without redoing them when results change later.

@@ -180,3 +180,72 @@ training setup that looked even better on paper (higher F1) but was
 actually just crying wolf on almost every reading — worth remembering as a
 trap when judging "is this score actually good" later in the project, not
 just for this one decision.
+
+---
+
+## Session 4 — 2026-06-20 — Hyperparameter sweep (ROADMAP B4)
+
+**Goal:** `contamination`/`nu` (0.1), LOF's `n_neighbors` (20), and
+Z-score's `threshold` (3.0) were all carried-over nominal defaults, never
+actually tuned for SKAB. Tune them properly.
+
+**Steps taken:**
+1. Wrote `experiments/hyperparameter_sweep.py`. To tune hyperparameters
+   without leaking the test set into the final reported numbers, split
+   `fault_train` (already held out from `fault_test`) a second time into
+   a fit set (for training candidates) and a validation set (for scoring
+   them) — `fault_test` itself stays untouched until the very end.
+
+**Issue #1 — bad validation split design:** First attempt split
+`fault_train` again chronologically (last 20% of it). Result: the
+validation set came out **98% anomalous**. Diagnosed by checking one
+file's anomaly flag decile-by-decile over its own timeline — confirmed
+this is real SKAB behavior, not a bug: each run tends to go normal ->
+fault induced and sustained for a contiguous middle-to-late chunk -> often
+back to normal right at the end. The "last 20% of the first 80%" slice
+landed almost exactly inside that sustained-fault block for most files.
+**Fix:** Added `file_holdout_split()` to `src/preprocessing.py` — instead
+of slicing time within files, it holds out entire experiment files for
+validation, keeping each one's natural normal/anomalous mix intact.
+Re-ran: validation anomaly rate became 38%, much closer to the test set's
+30% and far more trustworthy.
+
+**Issue #2 — first grid was too narrow:** Swept contamination/nu over
+`[0.01...0.25]` and every single model's "best" value landed on `0.25`,
+the edge of the grid — a tell that the true optimum was outside the range
+tested. **Fix:** widened the grid to cover the full range sklearn allows
+(`contamination`/`nu` up to 0.5), and Z-score's threshold down to 0.5.
+
+**Issue #3 — "best by F1" isn't always trustworthy:** With the wider grid,
+IsolationForest's contamination sweep showed a genuine interior peak at
+0.35 (F1 rose, then fell past it — a real signal). But One-Class SVM's nu
+and LOF's contamination kept climbing all the way to sklearn's hard limit
+of 0.5 without ever turning over, and Z-score's top scorer (threshold=0.5)
+had recall exactly 100%. Both are the same "flag almost everything" trap
+from session 3, just reappearing inside a hyperparameter sweep instead of
+a training-data choice. **Decision:** rejected the raw argmax for those
+three. Adopted IsolationForest's real peak (contamination=0.35) as a
+shared anomaly-rate assumption across all 3 contamination/nu-based models
+(consistent with the original brief's "identical assumption across
+models" spirit), kept LOF's `n_neighbors=20` (gains beyond it in the sweep
+were small and noisy, and pushing it much higher works against LOF's
+whole premise of looking at *local* neighborhoods), and set Z-score's
+threshold to 2.0 (the best value before recall pins to 100%).
+
+**Final result, on the real (never-touched-until-now) test set:**
+
+| model | before tuning | after tuning |
+|---|---|---|
+| Z-score | 0.248 | 0.410 |
+| One-Class SVM | 0.279 | 0.410 |
+| LOF | 0.257 | 0.381 |
+| IsolationForest | 0.350 | **0.496** |
+
+**Outcome (plain language):** All 4 models got meaningfully better, and
+none of them are cheating by just flagging everything (we checked this
+time, having been burned once already). IsolationForest is now clearly
+ahead of the other 3, by a wider margin than before — a stronger result
+for the paper's central claim. We also hit the same "model is just crying
+wolf" trap twice more during this session (once in the validation split,
+once in the sweep itself), which is worth remembering as a recurring
+thing to check for, not a one-off.
