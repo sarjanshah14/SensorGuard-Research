@@ -24,6 +24,22 @@ SensorGuard-Research is in an early/pre-code stage: the repository currently con
 All CSVs are semicolon-delimited (`;`) with columns:
 `datetime;Accelerometer1RMS;Accelerometer2RMS;Current;Pressure;Temperature;Thermocouple;Voltage;Volume Flow RateRMS[;anomaly;changepoint]`
 
+## Logging convention
+
+Sarjan reads/reviews/verifies; Claude drives the implementation. To make that
+possible, every work session must update two files (not just one):
+
+- `PROGRESS.md` — one line per session (non-negotiable, format:
+  `[DATE] [duration] what was done`).
+- `DEVLOG.md` — the detailed narrative: what we set out to do, the steps
+  taken and why, problems hit and exactly how they were diagnosed/fixed,
+  and a "plain language" outcome summary at the end of each entry. This is
+  the file to read back later to understand *why* something is the way it
+  is, not just *that* it changed.
+
+At the end of any response involving real work, also give a short
+plain-language summary in chat: what was done and what the outcome was.
+
 ## Development Commands
 
 Always run Python commands within the activated virtual environment (`source env/bin/activate`).
