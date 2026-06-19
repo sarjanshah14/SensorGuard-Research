@@ -117,3 +117,66 @@ came out on top, which is what the paper wants to show — but the scores
 are mediocre across the board because the training data has more
 anomalies mixed in than these methods are designed to tolerate. That's
 the next thing to fix, not a dead end.
+
+---
+
+## Session 3 — 2026-06-19 — Fixing the training-contamination problem (ROADMAP B3)
+
+**Goal:** Session 2 ended with training data that was ~28% anomalous —
+too dirty for unsupervised novelty detectors, which assume training data
+is mostly normal. Try to fix it and see if scores improve.
+
+**Steps taken:**
+1. Wrote `experiments/training_strategy_comparison.py` — reuses the
+   existing `src/` building blocks to test 3 ways of building the
+   training set, all evaluated against the exact same test set:
+   - **pooled** (session 2's baseline): anomaly-free.csv + every row of
+     the fault CSVs' 80% training slice, anomalies included (~28% dirty).
+   - **anomaly_free_only**: anomaly-free.csv alone (0% dirty, but it's a
+     single clean run — less variety).
+   - **filtered**: anomaly-free.csv + only the rows from the fault CSVs'
+     training slice that are labeled normal (0% dirty, more variety than
+     anomaly_free_only since it includes "normal" moments from the actual
+     fault rigs, not just the one pristine baseline rig).
+2. Ran it (`python -m experiments.training_strategy_comparison` — needed
+   an `__init__.py` in `experiments/` and to run as a module so `src/` is
+   importable; running the script directly failed with
+   `ModuleNotFoundError: No module named 'src'` since Python only adds the
+   script's own folder to the import path, not the repo root).
+
+**Issue faced:** `anomaly_free_only` looked like the best option at first
+glance — F1 jumped to ~0.46 for 3 of the 4 models. But recall was ~0.99–1.0
+across the board, which is a tell: a model that flags almost every single
+row as anomalous gets near-perfect recall *for free* (it can't miss an
+anomaly if it calls everything an anomaly), while precision lands right
+around the test set's actual anomaly rate (~0.30) purely by chance. Checked
+this by looking at recall, not just F1 — F1 alone would have hidden this.
+**Why it happened:** anomaly-free.csv is one pristine, steady-state run.
+The fault rigs' "normal" periods (when no fault is occurring) still differ
+from that pristine run's specific operating point — different flow rate,
+pressure, etc. A model trained only on the pristine run learns too narrow a
+definition of "normal," so it flags the fault rigs' legitimately-normal
+moments as anomalies too, not just the real faults.
+
+**Decision:** Use **filtered** as the new default in `main.py`. It keeps
+training data 100% free of labeled anomalies (the methodologically correct
+thing for an "unsupervised" claim) while including realistic operating
+variety from the actual fault rigs, which avoids the "flag everything"
+failure mode.
+
+**Result (filtered, now in `results/metrics.json`):**
+
+| model | precision | recall | f1 | vs. session 2 f1 |
+|---|---|---|---|---|
+| Z-score | 0.304 | 0.210 | 0.248 | 0.230 → 0.248 |
+| One-Class SVM | 0.299 | 0.262 | 0.279 | 0.254 → 0.279 |
+| LOF | 0.349 | 0.203 | 0.257 | 0.247 → 0.257 |
+| IsolationForest | 0.358 | 0.342 | **0.350** | 0.334 → 0.350 |
+
+**Outcome (plain language):** Cleaning up the training data (removing the
+labeled-anomalous rows instead of leaving them mixed in) made every single
+model better, with no downsides. We also nearly fooled ourselves with a
+training setup that looked even better on paper (higher F1) but was
+actually just crying wolf on almost every reading — worth remembering as a
+trap when judging "is this score actually good" later in the project, not
+just for this one decision.

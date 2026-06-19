@@ -51,7 +51,7 @@ One-Class SVM 0.254 > Z-score 0.230 — directionally right (IsolationForest
 should win, per the paper's hypothesis) but all 4 are weaker than they
 should be.
 
-### [ ] B3. Fix the training-contamination problem — **NEXT TASK**
+### [x] B3. Fix the training-contamination problem
 **What:** Right now `main.py` trains on `anomaly-free.csv` (100% normal) +
 the chronological 80% of every fault CSV pooled together — and that pooled
 fault-train slice is itself ~37% anomalous, so the combined training set
@@ -76,7 +76,17 @@ writing the Methodology section avoids rewriting that section later.
    (contaminated) baseline already in `results/metrics.json` — keep
    whichever is most defensible, and record the comparison in `DEVLOG.md`
    since it's a methodology decision the paper needs to justify.
-**Status:** Not started — proposed at the end of session 2, not yet run.
+**Resolved:** Tried all 3 variants (`experiments/training_strategy_comparison.py`).
+Training on `anomaly-free.csv` alone looked best by raw F1 (~0.46) but was a
+false win — recall hit ~100% because the models started flagging almost
+every fault-experiment row as anomalous (the clean baseline run's "normal"
+doesn't match the fault rigs' "normal" operating conditions). The winner is
+`anomaly-free.csv` + only the normal-labeled rows from each fault CSV's
+80% training slice (0% contamination, more realistic operating diversity
+than anomaly-free alone). `main.py` now uses this by default. New numbers:
+IsolationForest F1 0.350 (up from 0.334), all 4 models improved, no
+degenerate "flag everything" behavior. See `DEVLOG.md` session 3 for the
+full comparison table.
 
 ### [ ] B4. Hyperparameter sweep
 **What:** `contamination`/`nu` (currently fixed at 0.1) and LOF's
@@ -159,7 +169,8 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: B3 — fix the training-contamination problem.** Everything
-after it (B4, C1-C3, D2-D3) inherits whatever training setup we settle on,
-so it's the highest-leverage next step rather than the most urgent-feeling
-one.
+**Next task: B4 — hyperparameter sweep.** `contamination`/`nu` (0.1) and
+LOF's `n_neighbors` (20) are still carried-over defaults, not tuned for
+SKAB. Now that B3 has settled the training data, this is the next
+highest-leverage step before figures/Methodology lock in numbers that
+would need revisiting.
