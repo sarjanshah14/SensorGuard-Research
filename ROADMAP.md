@@ -1,0 +1,165 @@
+# SensorGuard-Research — End-to-End Gameplan
+
+Living checklist from "no code" to "submitted paper." Checkpoints are
+sequential within a phase; phases can overlap (e.g. paper writing can start
+once Phase B results stabilize, in parallel with Phase C). Check boxes get
+ticked as work completes — see `DEVLOG.md` for the detailed why/how behind
+each one, and `PROGRESS.md` for the one-line-per-session index.
+
+---
+
+## Phase A — Data Foundation
+
+### [x] A1. Verified SKAB data-loading pipeline
+**What:** `src/preprocessing.py` — `load_anomaly_free`, `load_skab_all`,
+`chronological_split`.
+**Why it's a separate checkpoint:** Everything downstream (features,
+models, evaluation) silently inherits any bug here. Getting it *verified*,
+not just written, before building on top of it was the whole point of
+session 1.
+**Done:** Loads all 35 CSVs correctly (9,401 anomaly-free rows + 34 fault
+runs / 37,459 rows). Split is per-source-file chronological 80/20 — caught
+and fixed a real bug where filenames collided across `valve1`/`valve2`/
+`other` folders before this was correct. Verified via `notebooks/01_explore.ipynb`.
+
+### [x] A2. Reviewed SensorGuard (old hackathon repo) for ideas
+**What:** Read `anomaly_ml.py`, `model_training.py`,
+`generate_sample_anomalies.py` — not ported, just mined for ideas, per
+Sarjan's instruction that 1.5-year-old code needs review, not reuse.
+**Done:** Kept hour/day-of-week + rolling-stat feature ideas and the
+deviation-magnitude anomaly taxonomy (useful for the paper's discussion
+section). Rejected its data leakage habits and hardcoded hyperparameters.
+
+---
+
+## Phase B — Modeling
+
+### [x] B1. Feature engineering
+**What:** `src/features.py` — 43 causal features (raw value, rolling
+mean/std @5s/30s, delta, per sensor; plus hour/day-of-week/time-since-start),
+computed per source experiment so windows never cross between independent
+SKAB runs.
+**Done.**
+
+### [x] B2. Four models + evaluation harness
+**What:** `src/models.py` (Z-score, One-Class SVM, LOF, IsolationForest
+behind one shared interface, identical scaled feature matrix, no labels
+used in training) + `src/evaluate.py` (precision/recall/F1/confusion
+matrix/timing → `results/metrics.json`) + `main.py` (end-to-end glue).
+**Done.** First real numbers: IsolationForest F1 0.334 > LOF 0.247 >
+One-Class SVM 0.254 > Z-score 0.230 — directionally right (IsolationForest
+should win, per the paper's hypothesis) but all 4 are weaker than they
+should be.
+
+### [ ] B3. Fix the training-contamination problem — **NEXT TASK**
+**What:** Right now `main.py` trains on `anomaly-free.csv` (100% normal) +
+the chronological 80% of every fault CSV pooled together — and that pooled
+fault-train slice is itself ~37% anomalous, so the combined training set
+ends up ~28% anomalous. Unsupervised/novelty methods (IsolationForest,
+One-Class SVM, LOF) assume training data is *mostly* normal; 28%
+contamination violates that assumption and is the most likely reason all 4
+models' absolute scores are mediocre.
+**Why it matters:** This is a methodology correctness issue, not a tuning
+nicety — a reviewer would flag "you trained an unsupervised novelty
+detector on data that's 28% anomalous" as a real flaw. Fixing it before
+writing the Methodology section avoids rewriting that section later.
+**Concrete plan:**
+1. Re-run with training restricted to `anomaly-free.csv` only (drop the
+   pooled fault-train slice from training entirely) — see if scores
+   improve. This is the "textbook" unsupervised setup for SKAB.
+2. As a second variant, try training on `anomaly-free.csv` + only the
+   rows in the fault-train slice where `anomaly == 0` (i.e., filter out
+   the known-anomalous rows from the fault CSVs' training portion, instead
+   of dropping the fault CSVs' normal rows entirely — keeps more "normal
+   under realistic operating conditions" data than anomaly-free alone).
+3. Compare both variants' precision/recall/F1 against the current
+   (contaminated) baseline already in `results/metrics.json` — keep
+   whichever is most defensible, and record the comparison in `DEVLOG.md`
+   since it's a methodology decision the paper needs to justify.
+**Status:** Not started — proposed at the end of session 2, not yet run.
+
+### [ ] B4. Hyperparameter sweep
+**What:** `contamination`/`nu` (currently fixed at 0.1) and LOF's
+`n_neighbors` (currently 20) were carried over from the old hackathon code
+as reasonable defaults, not tuned for SKAB. Once B3 settles the training
+data, sweep these on a validation slice (carved out of train, never touching
+test) and report sensitivity.
+**Depends on:** B3 (no point tuning hyperparameters on the wrong training
+distribution).
+
+---
+
+## Phase C — Results, Visualization, and the Streamlit App
+
+### [ ] C1. Paper-quality figures
+**What:** A real `src/visualize.py` (distinct from the existing
+`visualize.py` CLI) producing: time-series-with-predicted-vs-true-anomalies,
+a grouped bar chart comparing the 4 models on precision/recall/F1, and
+confusion-matrix heatmaps — saved as 300 DPI PNGs to `results/figures/`.
+**Depends on:** B3/B4 (no point finalizing figures on numbers about to change).
+
+### [ ] C2. Surface results inside `skab.py`'s Streamlit app
+**What:** A new section/tab in the existing Streamlit explorer showing the
+model comparison table and figures, so results are reviewable visually
+instead of only via terminal output or `results/metrics.json` — per
+Sarjan's stated preference.
+**Depends on:** C1.
+
+### [ ] C3. (Optional/low-priority) Model persistence
+**What:** Save fitted models via `joblib` to `results/models/` for
+reproducibility. Not required for the paper's results, just nice-to-have.
+
+---
+
+## Phase D — Paper Writing
+
+Per Sarjan's own ordering: easiest sections first, Abstract/Intro last.
+
+### [ ] D1. Dataset section
+Describe SKAB: testbed, sensors, fault types, label semantics. Mostly
+factual — can be drafted now, doesn't depend on B3/B4 settling.
+
+### [ ] D2. Methodology section
+Describe feature engineering, the 4 models, the train/test split — and
+explicitly the contamination decision from B3 (this section needs B3
+finished first, since "how we built the training set" is exactly what B3
+is fixing).
+
+### [ ] D3. Results section
+Numbers + figures from B3/B4/C1. Depends on those being finalized.
+
+### [ ] D4. Related Work
+8–10 citations from Google Scholar/arXiv on sensor anomaly detection.
+Independent of the code — can be done in parallel with anything above.
+
+### [ ] D5. Discussion & Limitations
+Honest about: single dataset (SKAB only), no live deployment, future work.
+Can reuse the SensorGuard anomaly-taxonomy definitions (Drift/Spike/
+Dropout/Noise/Calibration Error) here as framing for "what kinds of faults
+exist beyond what SKAB labels."
+
+### [ ] D6. Abstract + Introduction
+Written last, once D1–D5 exist to summarize.
+
+---
+
+## Phase E — Submission Logistics
+
+### [x] E1. Paper title decided and ready to send
+"Comparative Evaluation of Unsupervised Machine Learning Models for
+Multivariate Sensor Anomaly Detection in Industrial Systems" — confirmed.
+### [ ] E2. Prof. Abhi Shah finds venue/conference
+Blocked on him, not on us — title (E1) is what he needed to start.
+### [ ] E3. Format paper to venue's template
+Depends on E2 (template depends on which venue).
+### [ ] E4. Final submission
+Depends on D1–D6 and E3.
+
+---
+
+## Right now
+
+**Next task: B3 — fix the training-contamination problem.** Everything
+after it (B4, C1-C3, D2-D3) inherits whatever training setup we settle on,
+so it's the highest-leverage next step rather than the most urgent-feeling
+one.

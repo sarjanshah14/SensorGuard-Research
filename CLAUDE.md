@@ -36,6 +36,11 @@ possible, every work session must update two files (not just one):
   and a "plain language" outcome summary at the end of each entry. This is
   the file to read back later to understand *why* something is the way it
   is, not just *that* it changed.
+- `ROADMAP.md` — the forward-looking checklist: every checkpoint from "no
+  code" to "submitted paper," each elaborated (what/why/depends-on), with
+  checkboxes ticked as they complete. Update this whenever a checkpoint
+  finishes or the plan changes — it's the single source of truth for "what's
+  next."
 
 At the end of any response involving real work, also give a short
 plain-language summary in chat: what was done and what the outcome was.
