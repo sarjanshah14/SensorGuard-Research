@@ -4,13 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-SensorGuard-Research is in an early/pre-code stage: the repository currently contains dataset files, analysis/exploratory tools, and a virtual environment. It consists of:
+SensorGuard-Research is a complete, working research pipeline (data → features
+→ 6 models → evaluation → figures → persistence) for the paper "Comparative
+Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor
+Anomaly Detection in Industrial Systems." Only the paper itself (Phase D in
+`ROADMAP.md`) remains. Layout:
 
-- `README.md` — project overview, dataset info, and setup instructions.
+- `README.md` — project overview, dataset info, and how to run things.
+- `WALKTHROUGH.md` — the plain-English guide to everything built and why;
+  read this first to review results without reading code.
+- `ROADMAP.md` / `DEVLOG.md` / `PROGRESS.md` — the living plan, the detailed
+  narrative log, and the one-line-per-session index (see "Logging convention"
+  below).
 - `SKAB/` — the Skoltech Anomaly Benchmark (SKAB) dataset (CSV files).
 - `env/` — local Python 3.14 virtual environment. Activate with `source env/bin/activate`.
-- `visualize.py` — CLI/interactive tool for summarizing dataset files and saving Matplotlib signal/correlation plots under `plots/`.
-- `explore.ipynb` — Jupyter Notebook containing code cells for interactive, block-by-block data analysis.
+- `src/` — the pipeline: `preprocessing.py` (loading/splitting), `features.py`
+  (feature engineering), `models.py` (the 6 models), `evaluate.py` (scoring),
+  `postprocess.py` (a rejected smoothing idea, kept for the record),
+  `persist.py` (model save/load), `visualize.py` (paper figures).
+- `main.py` — runs the whole pipeline end to end; regenerates
+  `results/metrics.json`, `results/figures/`, and `results/models/`.
+- `experiments/` — one-off ablation/decision scripts backing specific
+  methodology choices (training strategy, hyperparameter sweep, temporal
+  smoothing, feature ablation, extra models) — kept as evidence, not dead code.
+- `skab.py` — Streamlit app for exploring the dataset and viewing model
+  results (`streamlit run skab.py`).
+- `results/` — official metrics, figures, and the saved model bundle.
 
 ## Dataset: SKAB
 
@@ -49,19 +68,16 @@ plain-language summary in chat: what was done and what the outcome was.
 
 Always run Python commands within the activated virtual environment (`source env/bin/activate`).
 
-- **List dataset files**:
+- **Run the full pipeline** (regenerates `results/metrics.json`, the 4
+  figures, and the saved model bundle):
   ```bash
-  python visualize.py --list
+  python main.py
   ```
-- **Run interactive visualizer selector**:
+- **Launch the interactive Streamlit app** (dataset explorer + Model Results tab):
   ```bash
-  python visualize.py
+  streamlit run skab.py
   ```
-- **Visualize a specific CSV file**:
+- **Re-run a specific methodology experiment** (run as a module so `src/` is importable):
   ```bash
-  python visualize.py --file SKAB/valve1/0.csv
-  ```
-- **Visualize a file without saving plots to disk (show GUI window)**:
-  ```bash
-  python visualize.py --file SKAB/valve1/0.csv --no-save
+  python -m experiments.hyperparameter_sweep
   ```

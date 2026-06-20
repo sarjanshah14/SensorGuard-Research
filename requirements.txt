@@ -7,4 +7,3 @@ seaborn==0.13.2
 joblib==1.5.3
 streamlit==1.58.0
 plotly==6.8.0
-jupyter==1.1.1
