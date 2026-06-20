@@ -10,8 +10,8 @@
       "fn": 1017,
       "tp": 1235
     },
-    "train_time_s": 0.0022029579849913716,
-    "inference_time_s": 0.0005869999877177179
+    "train_time_s": 0.0017792080179788172,
+    "inference_time_s": 0.0005172499804757535
   },
   {
     "model": "One-Class SVM",
@@ -24,8 +24,8 @@
       "fn": 1042,
       "tp": 1210
     },
-    "train_time_s": 7.3595382499624975,
-    "inference_time_s": 2.205167582957074
+    "train_time_s": 7.338766624976415,
+    "inference_time_s": 2.206771125027444
   },
   {
     "model": "LOF",
@@ -38,8 +38,8 @@
       "fn": 1217,
       "tp": 1035
     },
-    "train_time_s": 0.3292469999869354,
-    "inference_time_s": 0.13530858303420246
+    "train_time_s": 0.353917290980462,
+    "inference_time_s": 0.14188308297889307
   },
   {
     "model": "PCA-recon",
@@ -52,8 +52,8 @@
       "fn": 1193,
       "tp": 1059
     },
-    "train_time_s": 0.005287791951559484,
-    "inference_time_s": 0.000962416990660131
+    "train_time_s": 0.005664875032380223,
+    "inference_time_s": 0.000971208035480231
   },
   {
     "model": "EllipticEnvelope",
@@ -66,8 +66,8 @@
       "fn": 1039,
       "tp": 1213
     },
-    "train_time_s": 0.5075902079697698,
-    "inference_time_s": 0.00074637500802055
+    "train_time_s": 0.5175269159954041,
+    "inference_time_s": 0.0009322499972768128
   },
   {
     "model": "IsolationForest",
@@ -80,7 +80,7 @@
       "fn": 775,
       "tp": 1477
     },
-    "train_time_s": 0.10304691700730473,
-    "inference_time_s": 0.013910542009398341
+    "train_time_s": 0.10540012497222051,
+    "inference_time_s": 0.013742292008828372
   }
 ]

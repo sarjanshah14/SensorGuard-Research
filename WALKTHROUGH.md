@@ -82,6 +82,7 @@ research/
 │   ├── models.py             the 6 models (Z-score, One-Class SVM, LOF, PCA-recon, Elliptic Envelope, Isolation Forest)
 │   ├── evaluate.py           scores the models (precision/recall/F1)
 │   ├── postprocess.py        the smoothing idea we tested (and rejected)
+│   ├── persist.py            saves/loads the trained models (joblib)
 │   └── visualize.py          makes the 4 paper figures
 ├── main.py                   runs the whole pipeline end to end
 ├── experiments/              one-off studies behind our decisions
@@ -91,7 +92,8 @@ research/
 │   └── feature_ablation.py               (how we caught the data leak)
 ├── results/
 │   ├── metrics.json          THE NUMBERS (precision/recall/F1 for all 6 models)
-│   └── figures/              THE CHARTS (4 PNGs, see §7)
+│   ├── figures/              THE CHARTS (4 PNGs, see §7)
+│   └── models/               saved trained models (regenerated, not in git)
 ├── skab.py                   the Streamlit visual app (incl. "Model Results" tab)
 ├── ROADMAP.md / DEVLOG.md / PROGRESS.md    the logs
 └── SensorGuard/              the old hackathon project (reference only, ignored by git)

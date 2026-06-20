@@ -199,9 +199,15 @@ described an outdated (and backwards) split that contradicted the actual
 pipeline. Verified the app launches cleanly (HTTP 200, no tracebacks) and
 unit-tested the table/figure logic.
 
-### [ ] C3. (Optional/low-priority) Model persistence
-**What:** Save fitted models via `joblib` to `results/models/` for
-reproducibility. Not required for the paper's results, just nice-to-have.
+### [x] C3. Model persistence
+**What:** Save fitted models via `joblib` for reproducibility.
+**Done.** `src/persist.py` bundles all 6 fitted models + the StandardScaler
++ the feature names into a single `results/models/anomaly_models.joblib`.
+`main.py` writes it every run (`run_all_models` gained `return_models=True`).
+Verified: reloading the bundle and scoring the test set reproduces
+IsolationForest F1 0.466 with no retraining. The `.joblib` (~18 MB, mostly
+One-Class SVM's support vectors) is git-ignored as a regenerable artifact;
+the folder is kept via `.gitkeep`.
 
 ---
 
@@ -253,10 +259,9 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: start Phase D — paper writing.** All of the modeling (B) and
-results/visualization (C1-C2) work is done; C3 (model persistence) is
-optional/low-priority. The highest-leverage remaining work is drafting the
-paper, easiest sections first: D1 (Dataset) and D4 (Related Work) don't
-depend on anything else and can start immediately; D2 (Methodology) and D3
-(Results) can pull directly from DEVLOG.md + results/metrics.json + the
-figures.
+**Next task: start Phase D — paper writing.** ALL code work is now done —
+modeling (B1-B6), results/visualization (C1-C2), and model persistence (C3).
+The only thing left for the whole project is writing the paper, easiest
+sections first: D1 (Dataset) and D4 (Related Work) don't depend on anything
+else and can start immediately; D2 (Methodology) and D3 (Results) can pull
+directly from DEVLOG.md + results/metrics.json + the figures.

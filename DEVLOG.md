@@ -469,3 +469,35 @@ still on top. Along the way we hit and fixed a real numerical breakdown in
 Elliptic Envelope (singular covariance), which is itself a small, honest
 methods detail. **Modeling is now genuinely finished — next stop is writing
 the paper.**
+
+---
+
+## Session 9 — 2026-06-20 — Saving the trained models (ROADMAP C3)
+
+**Goal:** Make a run reproducible without retraining — save the fitted
+models to disk so they can be reloaded and used directly.
+
+**Steps taken:**
+1. Gave `run_all_models` a `return_models=True` option so it can hand back
+   the fitted model objects (not just their scores/predictions).
+2. Wrote `src/persist.py` (`save_artifacts` / `load_artifacts`). It bundles
+   everything needed to score new data into one file
+   (`results/models/anomaly_models.joblib`): all 6 fitted models, the
+   `StandardScaler` they were trained with (so new data gets scaled the same
+   way), and the feature-name list (so you know what to feed them).
+3. Wired the save into `main.py` — it now writes the bundle on every run.
+4. Git-ignored the `.joblib` file (it's ~18 MB and fully regenerable by
+   `python main.py`), but kept the `results/models/` folder via a `.gitkeep`
+   so the structure is preserved.
+
+**Verification:** loaded the saved bundle in a fresh Python process, rebuilt
+the test set, scaled it with the *saved* scaler, and predicted with the
+*saved* Isolation Forest — got F1 0.466, exactly matching the committed
+result, with zero retraining. So the persistence round-trips correctly.
+
+**Outcome (plain language):** Every time the pipeline runs, it now also
+saves the trained models to a single file. Anyone (including future-us) can
+reload that file and reproduce the exact predictions instantly, without
+re-running the training. The file itself isn't stored in git because it's
+big and can always be regenerated. With this, **every code checkpoint in the
+project is complete** — all that remains is writing the paper.

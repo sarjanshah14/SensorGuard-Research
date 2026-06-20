@@ -22,6 +22,7 @@ from src.preprocessing import chronological_split, load_anomaly_free, load_skab_
 from src.features import build_features
 from src.models import scale_features
 from src.evaluate import compare_models, run_all_models
+from src.persist import save_artifacts
 from src.visualize import (
     plot_anomaly_closeup,
     plot_confusion_matrices,
@@ -67,15 +68,20 @@ def main():
     X_test, _ = build_features(test_df, group_col="source_file")
     y_test = test_df["anomaly"].to_numpy()
 
-    X_train_scaled, X_test_scaled, _ = scale_features(X_train, X_test)
+    X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
 
-    results, predictions = run_all_models(
-        X_train_scaled, X_test_scaled, y_test, return_predictions=True
+    results, predictions, states = run_all_models(
+        X_train_scaled, X_test_scaled, y_test,
+        return_predictions=True, return_models=True,
     )
     comparison = compare_models(results)
 
     print(f"\n{len(feature_names)} features: {feature_names}\n")
     print(comparison.to_string(index=False))
+
+    # --- persist fitted models for reproducibility (ROADMAP C3) ---
+    artifacts_path = save_artifacts(states, scaler, feature_names)
+    print(f"\nsaved models bundle: {artifacts_path}")
 
     # --- figures (ROADMAP C1) ---
     # build_features(test_df, group_col=...) preserves test_df's row order

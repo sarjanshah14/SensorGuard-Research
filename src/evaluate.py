@@ -20,16 +20,20 @@ def evaluate(y_true, y_pred, model_name: str) -> dict:
     }
 
 
-def run_all_models(X_train, X_test, y_test, return_predictions: bool = False):
+def run_all_models(X_train, X_test, y_test, return_predictions: bool = False,
+                   return_models: bool = False):
     """Train+predict every model in MODELS on identical X, return one
     result dict per model with metrics + train/inference timing (seconds).
 
-    With return_predictions=True, also returns a {model_name: y_pred} dict
-    so callers can plot per-file predictions without re-fitting. Each y_pred
-    is row-aligned with X_test.
+    Optional extras (appended to the return tuple in this order):
+      - return_predictions=True -> a {model_name: y_pred} dict, row-aligned
+        with X_test, so callers can plot without re-fitting.
+      - return_models=True -> a {model_name: fitted_state} dict, so callers
+        can persist the trained models (see src/persist.py).
     """
     results = []
     predictions = {}
+    states = {}
     for name, (train_fn, predict_fn) in MODELS.items():
         t0 = time.perf_counter()
         state = train_fn(X_train)
@@ -44,9 +48,14 @@ def run_all_models(X_train, X_test, y_test, return_predictions: bool = False):
         result["inference_time_s"] = inference_time
         results.append(result)
         predictions[name] = y_pred
+        states[name] = state
+
+    extras = []
     if return_predictions:
-        return results, predictions
-    return results
+        extras.append(predictions)
+    if return_models:
+        extras.append(states)
+    return (results, *extras) if extras else results
 
 
 def compare_models(results: list[dict], out_path: str = "results/metrics.json") -> pd.DataFrame:
