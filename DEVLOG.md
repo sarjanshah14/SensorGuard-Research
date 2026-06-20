@@ -646,3 +646,61 @@ not shading those fake boundaries for the combined view. Confirmed with a
 real automated run of the app, not just a code read-through: the page that
 used to hang past 2 minutes now loads in just over 1 second, for every
 single sidebar option.
+
+---
+
+## Session 12 — 2026-06-20 — Cleaning the repo for external review
+
+**Goal:** Sarjan is about to hand this repo to Prof. Abhi Shah to clone and
+read. He asked to strip out old/unnecessary stuff and keep only what
+matters — i.e., make sure a first-time outside reader isn't tripped up by
+leftover scaffolding from before the real pipeline existed.
+
+**What I removed and why:**
+- `explore.ipynb` (root) and `notebooks/01_explore.ipynb` — both pre-date
+  (or were one-off sanity checks from session 1 of) the actual `src/`
+  pipeline; neither is imported by any pipeline code, and `WALKTHROUGH.md`'s
+  file map never mentions them — they'd already been functionally
+  forgotten. Confirmed via `grep` that no `.py` file references either.
+- `visualize.py` (root) — a standalone pre-pipeline CLI for ad-hoc plotting,
+  fully superseded by `src/visualize.py` (the real paper-figure generator
+  driven by `main.py`) and by `skab.py`'s own Sensor Graphs tab. Also not
+  referenced by any pipeline code.
+- `jupyter` from `requirements.txt` — no notebooks remain in the repo, so
+  the dependency was dead weight.
+
+**What I deliberately did NOT touch:** `experiments/*.py` (the ablation/
+decision scripts) — these are referenced throughout `DEVLOG.md` and
+`WALKTHROUGH.md` as the actual evidence behind methodology choices
+(training strategy, hyperparameter sweep, the rejected smoothing idea, the
+leak fix, the extra-models test). Removing them would have deleted the
+proof behind several claims this log makes. Also left `DEVLOG.md`,
+`PROGRESS.md`, and `ROADMAP.md` untouched even where they mention the
+deleted files — those are a historical record of what we did and when, not
+current documentation, and editing history to match the present would make
+them dishonest.
+
+**What I updated instead of deleting:** `CLAUDE.md`'s "Project state"
+section still said the repo was in an "early/pre-code stage" — wildly
+stale, since the entire 6-model pipeline, results, and Streamlit app were
+already done. Rewrote it (and its "Development Commands" section, which
+only listed the now-deleted `visualize.py`) to describe what's actually
+here. Rewrote `README.md` the same way — it previously only described the
+dataset and the old CLI/notebook tools, with no mention of the actual
+research, the 6 models, or the results; it's now a short front door that
+points straight at `WALKTHROUGH.md`.
+
+**Verification:** `python -m py_compile` on `main.py`, `skab.py`, every
+`src/*.py`, and every `experiments/*.py` — all pass. Re-grepped for any
+remaining `.py` references to the three deleted files — none found.
+
+**Outcome (plain language):** Removed three files that were leftover from
+before the real project existed (an old notebook, a duplicate plotting
+script, and a one-off test notebook) — none of them were used by any of the
+actual research code, so deleting them changes nothing about how the
+pipeline runs. Also rewrote the two "front door" docs (`README.md` and
+`CLAUDE.md`) since they were still describing the project as barely
+started, which would have confused your professor on first read. Left the
+experiment scripts and the DEVLOG/PROGRESS/ROADMAP history alone — those
+are exactly the kind of "boring but important" evidence a reviewer should
+see, not clutter.
