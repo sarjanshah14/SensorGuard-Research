@@ -501,3 +501,67 @@ reload that file and reproduce the exact predictions instantly, without
 re-running the training. The file itself isn't stored in git because it's
 big and can always be regenerated. With this, **every code checkpoint in the
 project is complete** — all that remains is writing the paper.
+
+---
+
+## Session 10 — 2026-06-20 — Bug fix: Model Results tab going blank / crashing on non-anomaly-free data
+
+**Goal:** Sarjan started actually using the live Streamlit app
+(`streamlit run skab.py`) to review results, per the WALKTHROUGH guide, and
+found a real bug: with the sidebar's "Experiment type" dropdown on
+"anomaly-free" everything worked, but switching it to "ALL", "other",
+"valve1", or "valve2" made the "🏆 Model Results" tab show nothing, and
+switching to "other" specifically crashed with
+`ValueError: underlying array is read-only` at a line in the *Insights* tab
+(`np.fill_diagonal(corr_diff.values, 0)`).
+
+**Diagnosis:** Two things compounding into one confusing symptom:
+1. `compute_correlation_matrices()` is wrapped in `@st.cache_data`.
+   Streamlit marks the numpy buffer behind any cached return value
+   read-only, to stop one part of the app from accidentally corrupting
+   another part's cached copy. `corr_diff = (anom_corr - normal_corr).abs()`
+   inherits that read-only-ness from its inputs, so the old code's in-place
+   `np.fill_diagonal(corr_diff.values, 0)` — which tries to zero the
+   diagonal *in place* — crashed.
+2. This code path only runs when there are anomalies to compare against
+   normal data — i.e. every dropdown choice except "anomaly-free" (which
+   has none and skips it entirely). That's exactly the symptom: works only
+   on anomaly-free.
+3. Why the *later* "Model Results" tab went blank too, not just "Insights":
+   Streamlit re-runs the **entire script top-to-bottom** on every
+   interaction, including every `with tab:` block, regardless of which tab
+   is visually open. An unhandled crash earlier in the script (Insights)
+   halts everything below it in that run — including the Model Results
+   tab's code — even though the two tabs are otherwise unrelated.
+
+**Fix:** Instead of mutating `corr_diff` in place, copy it to a fresh
+writable numpy array first, zero the diagonal there, then rebuild a
+DataFrame from that copy for the rest of the calculation:
+```python
+off_diag = corr_diff.to_numpy(copy=True)
+np.fill_diagonal(off_diag, 0)
+off_diag_df = pd.DataFrame(off_diag, index=corr_diff.index, columns=corr_diff.columns)
+max_break = off_diag_df.max().max()
+max_pair = off_diag_df.stack().idxmax()
+```
+
+**Verification:** An initial attempt to verify by importing `skab.py` as a
+module (to simulate selecting "other" in the sidebar) was unreliable —
+importing it runs the *entire* script as a side effect, which isn't a real
+isolated test. Instead, reproduced the exact mechanism standalone: wrapped
+a DataFrame-returning function in `@st.cache_data`, called it, and
+confirmed the returned array's `.flags.writeable` is `False` — matching the
+real cause. Confirmed the *old* code raises the identical
+`ValueError: underlying array is read-only` against that read-only data,
+and the *new* code runs cleanly and produces the correct max-break value.
+`python -m py_compile skab.py` also passes.
+
+**Outcome (plain language):** The dashboard had a real bug: a chart's code
+was trying to modify data that Streamlit's caching system marks
+"protected." That crash, happening inside the Insights tab, was silently
+also breaking the separate Model Results tab, because Streamlit re-runs the
+whole page on every click no matter which tab you're looking at — so one
+bug in one tab took down an unrelated one. Fixed by working on a private
+copy of the data instead of the protected original. The app should now work
+correctly with every "Experiment type" option in the sidebar, not just
+anomaly-free.
