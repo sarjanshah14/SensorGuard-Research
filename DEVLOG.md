@@ -565,3 +565,84 @@ bug in one tab took down an unrelated one. Fixed by working on a private
 copy of the data instead of the protected original. The app should now work
 correctly with every "Experiment type" option in the sidebar, not just
 anomaly-free.
+
+---
+
+## Session 11 — 2026-06-20 — Bug fix #2: "ALL" mode freezing the whole app
+
+**Goal:** Sarjan reported the app was *still* not working — specifically
+that the sidebar's "ALL" option (the literal default on page load) made
+the page "go away" with nothing loading, while every other option
+("anomaly-free", "other", "valve1", "valve2") loaded fine. He asked me to
+actually check it myself rather than just reason about the code, and to
+refactor whatever was still broken.
+
+**Why session 10's fix didn't catch this:** that session fixed a *crash*
+(an exception with a traceback). This was a *freeze* — no exception, no
+error message, just the page never finishing. A silent hang doesn't show
+up by reading the code; it has to be measured.
+
+**How I actually verified it this time, instead of guessing:**
+1. First tried Streamlit's real test harness (`streamlit.testing.v1.AppTest`,
+   which runs the actual script and lets you click widgets exactly like a
+   browser would, server-side). The very first `at.run()` — which defaults
+   to "ALL" because it's the first item in the dropdown — timed out past
+   120 seconds. That alone proved "ALL" really does hang, on the very first
+   load, independent of anything else.
+2. Measured the "ALL" dataframe directly: concatenating all 35 SKAB CSVs
+   and sorting by datetime gives 46,860 rows with **1,014 duplicate
+   timestamps** — different physical experiments were recorded with
+   overlapping wall-clock times, so sorting by absolute time interleaves
+   rows from unrelated runs. Running `anomaly_intervals()` (which detects
+   anomaly start/end by watching the `anomaly` column flip) on that
+   interleaved mess produced **231 "episodes"** and **130 "changepoints"**
+   — almost all of them artifacts of jumping between different
+   experiments mid-stream, not real fault episodes.
+3. Timed the actual rendering cost: building one sensor's Plotly chart with
+   those 231 shaded regions took **7.6 seconds**, almost entirely from the
+   231 `add_vrect` calls (the same chart with zero shading took 36
+   *milliseconds* — vrects are the entire cost). The Sensor Graphs tab does
+   this once per sensor — 8 sensors × ~360 total shapes (231 vrects + 130
+   vlines) — which is roughly a minute of pure rendering time before that
+   tab can even finish, well before the page can move on to the Model
+   Results tab the user actually wanted to see.
+
+**Fix (`skab.py`):**
+- In the Sensor Graphs tab, when "ALL" is selected, stop passing the
+  (meaningless, exploded) interval/changepoint lists into the per-sensor
+  charts — render the raw signal with no shading instead. Updated the
+  existing warning message to explain *why* (not just "select a file for
+  cleaner plots," but the real reason: merging 35 unrelated experiments by
+  wall-clock time produces nonsensical boundaries, and rendering them all
+  is what was slow).
+- The live one-line summary banner above the tabs had the same problem —
+  it would report a "longest episode" computed from those same bogus
+  intervals for "ALL." Fixed it to show total anomaly seconds without that
+  misleading per-episode claim when "ALL" is selected.
+
+**Verification (re-ran with the real harness, not just inspection this
+time):**
+- `AppTest` initial load (which is "ALL" by default): **120+ second
+  timeout → 1.2 seconds.**
+- Drove all 5 "Experiment type" options (`anomaly-free`, `other`,
+  `valve1`, `valve2`, `ALL`) through the real script end-to-end: all 5
+  load in under 1 second, zero exceptions, all 7 tabs render.
+- Specifically opened the Model Results tab after selecting `valve1` to
+  confirm it still shows the real metrics (IsolationForest F1 0.466) —
+  it does, since that tab never depended on the sidebar selection at all.
+
+**Outcome (plain language):** The first fix (session 10) solved a crash;
+this was a second, different bug — a *freeze*, not a crash, so it didn't
+show up by reading the code, only by actually timing it. The cause:
+selecting "ALL" merges 35 separate experiments and lays them out by clock
+time, but those experiments were recorded with overlapping clocks, so the
+merge interleaves unrelated runs and makes the "where do anomalies
+start/stop" logic invent hundreds of fake boundaries. Drawing all of those
+as shaded regions on 8 charts was the actual slow part — about a minute of
+pure rendering — which is why "ALL" (the option you see by default when you
+open the app) looked like it never loads, while every other option (which
+only loads one real experiment at a time) was always fine. Fixed by simply
+not shading those fake boundaries for the combined view. Confirmed with a
+real automated run of the app, not just a code read-through: the page that
+used to hang past 2 minutes now loads in just over 1 second, for every
+single sidebar option.
