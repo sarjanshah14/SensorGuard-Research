@@ -420,13 +420,22 @@ cps = df.index[df["changepoint"] == 1].tolist()
 
 st.title(f"🔬 {display_name}")
 
-# Compute a dynamic one-liner based on data
-if n_anom > 0 and intervals:
+# Compute a dynamic one-liner based on data. For "ALL", "episodes" computed
+# from anomaly_intervals() are an artifact of merging 35 independent
+# experiments and sorting by wall-clock time (unrelated runs interleave),
+# not real fault episodes — so skip that claim and show only the totals.
+if n_anom > 0 and sel_folder != "ALL" and intervals:
     longest_ep = max((e - s).total_seconds() for s, e in intervals)
     st.markdown(
         f"📊 **{n_rows:,} rows** · **{dur_min:.1f} min** of data · "
         f"**{n_anom:,} anomaly seconds** ({anom_pct:.1f}%) across "
         f"**{len(intervals)} episode(s)** · longest episode: **{int(longest_ep)}s**"
+    )
+elif n_anom > 0:
+    st.markdown(
+        f"📊 **{n_rows:,} rows** · **{dur_min:.1f} min** of data · "
+        f"**{n_anom:,} anomaly seconds** ({anom_pct:.1f}%) — combined view, "
+        f"per-episode breakdown hidden (see a specific file for that)."
     )
 else:
     st.markdown(
@@ -532,7 +541,24 @@ with tab_sensors:
     st.subheader(f"Sensor Time-Series — {display_name}")
 
     if sel_folder == "ALL":
-        st.warning("Combined view — select a specific file in the sidebar for cleaner per-experiment plots.")
+        # "ALL" concatenates 35 independent experiments and sorts by
+        # wall-clock datetime, which interleaves unrelated runs and makes
+        # anomaly_intervals()/changepoints produce hundreds of spurious
+        # boundaries (real episodes from different files, not one
+        # continuous run). Plotly's add_vrect/add_vline are O(shapes) per
+        # call, so shading ~230+ of these per sensor — across all 8 sensors
+        # — was taking well over a minute to render and made the tab look
+        # like it never loads. Skip shading here; the per-file tabs below
+        # (and the other "Experiment type" choices) still show it.
+        st.warning(
+            "Combined view — anomaly shading is hidden here because merging 35 "
+            "independent experiments by wall-clock time produces meaningless, "
+            "very numerous boundaries (and rendering all of them is slow). "
+            "Select a specific file in the sidebar to see true per-experiment shading."
+        )
+        shade_intervals, shade_cps = [], []
+    else:
+        shade_intervals, shade_cps = intervals, cps
 
     for i, col in enumerate(scols):
         info = SENSOR_EXPLAIN.get(col, {})
@@ -551,7 +577,7 @@ with tab_sensors:
 
             with cols[0]:
                 fig = make_sensor_timeseries(df, col, PALETTE[i % len(PALETTE)],
-                                             intervals, cps, height=200)
+                                             shade_intervals, shade_cps, height=200)
                 st.plotly_chart(fig, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
