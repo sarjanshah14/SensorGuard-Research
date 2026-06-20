@@ -670,10 +670,16 @@ with tab_insights:
                 fig_cd.update_layout(height=350, **PLOTLY_LAYOUT)
                 st.plotly_chart(fig_cd, use_container_width=True)
 
-            # Find the biggest correlation break
-            np.fill_diagonal(corr_diff.values, 0)
-            max_break = corr_diff.max().max()
-            max_pair = corr_diff.stack().idxmax()
+            # Find the biggest correlation break (off-diagonal only).
+            # corr_diff's underlying array can be read-only here (it derives
+            # from compute_correlation_matrices, which Streamlit's
+            # @st.cache_data marks read-only to protect the cache), so build
+            # a fresh writable copy rather than mutating corr_diff in place.
+            off_diag = corr_diff.to_numpy(copy=True)
+            np.fill_diagonal(off_diag, 0)
+            off_diag_df = pd.DataFrame(off_diag, index=corr_diff.index, columns=corr_diff.columns)
+            max_break = off_diag_df.max().max()
+            max_pair = off_diag_df.stack().idxmax()
             st.info(
                 f"💡 The biggest correlation break is between **{max_pair[0]}** and **{max_pair[1]}** "
                 f"(Δ = {max_break:.2f}). These two sensors have a fundamentally different relationship "
