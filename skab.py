@@ -950,11 +950,11 @@ See the **🏆 Model Results** tab for the actual scores.
         )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 7 — Model Results (the actual 4-model comparison from main.py)
+# TAB 7 — Model Results (the actual 6-model comparison from main.py)
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab_results:
-    st.subheader("🏆 Model Results — 4-Model Comparison")
+    st.subheader("🏆 Model Results — 6-Model Comparison")
     st.caption(
         "The real trained-model results from the research pipeline. "
         "Run `python main.py` to (re)generate `results/metrics.json` and the figures, "
@@ -964,7 +964,7 @@ with tab_results:
     if not os.path.exists(METRICS_PATH):
         st.warning(
             "No results found yet. Run **`python main.py`** from the project root "
-            "to train the 4 models and generate the metrics + figures, then reload."
+            "to train the 6 models and generate the metrics + figures, then reload."
         )
     else:
         with open(METRICS_PATH) as f:
