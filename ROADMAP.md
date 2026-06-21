@@ -231,6 +231,13 @@ Numbers + figures from B3/B4/C1. Depends on those being finalized.
 ### [ ] D4. Related Work
 8–10 citations from Google Scholar/arXiv on sensor anomaly detection.
 Independent of the code — can be done in parallel with anything above.
+**In progress:** 12 real, verified citations gathered into `REFERENCES.md`
+(IEEE-formatted, each checked against publisher/arXiv/DOI), with a
+section-by-section map of which reference backs which claim. Covers the
+dataset [1], the surveys [2–4], all 6 models [5–9], application context
+[10–11], and scikit-learn [12]. One author list ([11]) still to confirm
+before final submission. Writing the actual Related Work prose around these
+is what remains.
 
 ### [ ] D5. Discussion & Limitations
 Honest about: single dataset (SKAB only), no live deployment, future work.
