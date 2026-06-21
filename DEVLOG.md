@@ -704,3 +704,87 @@ started, which would have confused your professor on first read. Left the
 experiment scripts and the DEVLOG/PROGRESS/ROADMAP history alone — those
 are exactly the kind of "boring but important" evidence a reviewer should
 see, not clutter.
+
+---
+
+## Session 13 — 2026-06-21 — Gathering real citations (ROADMAP D4)
+
+**Goal:** Before writing the paper, assemble a pool of *real, verifiable*
+references — Sarjan asked me to do my part (find citations) ahead of Prof.
+Shah adding his, and to explain what citations are.
+
+**What I did:** Searched the web for each work we actually rely on and
+confirmed each against its publisher/arXiv/DOI rather than citing from
+memory (fabricated references are the fastest route to desk-rejection).
+Collected 12 into `REFERENCES.md`, IEEE-formatted, grouped by purpose
+(dataset, surveys, the 6 models, application context, the library) with a
+section-by-section map of which reference supports which claim. Verified the
+official SKAB citation directly from the dataset's own repository. Flagged
+one (the rotating-machinery review) whose exact author list I want to
+confirm against the published PDF before submission. Noted honestly that the
+z-score baseline has no single canonical primary paper (it's a textbook
+method) rather than inventing one.
+
+**Outcome (plain language):** The paper now has a verified set of real
+references to build on — no made-up sources, each one checked. Also
+explained to Sarjan what a citation is and why they have to be real.
+
+---
+
+## Session 14 — 2026-06-21 — Drafting the full paper end-to-end (ROADMAP D1–D6)
+
+**Goal:** Sarjan asked for a complete end-to-end paper draft, which he'll
+then humanise himself.
+
+**Steps taken:**
+1. Pulled the exact figures the paper needed straight from the pipeline
+   rather than from memory: re-ran the data split to confirm the training
+   set is 28,368 rows (9,401 anomaly-free + 18,967 normal-labelled fault
+   rows) and the test set is 7,503 rows with 2,252 anomalies (30.0%); read
+   `results/metrics.json` for every model's precision/recall/F1 and
+   confusion matrix; confirmed the feature count is 41 from `features.py`.
+2. Wrote `paper/paper.tex` in the IEEE `IEEEtran` conference format — the
+   format we'd already agreed on — with all seven sections plus abstract and
+   keywords: Introduction (with an explicit 4-point contribution list),
+   Related Work, Dataset, Methodology, Results (a 6-model table + all four
+   figures embedded from `results/figures/` + a confusion-matrix error
+   analysis + an analysis of why the correlation-based models don't win),
+   Discussion & Limitations, and Conclusion. All 12 references from
+   `REFERENCES.md` are included as a `thebibliography` block.
+3. Wrote `paper/README.md` with Overleaf/pdfLaTeX compile steps and an
+   explicit list of what's real (every number, table, figure, citation)
+   versus placeholder (author affiliations/emails, and the ref [11] author
+   check).
+
+**Decisions worth noting:**
+- **Honest framing throughout, by design.** The abstract and Discussion
+  state plainly that absolute precision is modest (~0.36, ~2 in 3 alarms
+  false), that this is normal for real industrial benchmarks, and that the
+  contribution is the *comparison*, not a state-of-the-art detector. The
+  wall-clock leak (F1 0.496 → 0.466) is documented as a feature of the
+  rigour, not hidden. This is the version a reviewer trusts.
+- **Kept it self-contained / low-dependency.** Used only standard IEEE
+  packages and removed the one `siunitx` command (`\SI{1}{\hertz}` →
+  `1\,Hz`) so it compiles on a vanilla pdfLaTeX/Overleaf setup with no extra
+  package installs.
+- **Author block left as placeholders** (`[Institution]`, `[City, Country]`,
+  `[email]`) for Sarjan and Prof. Shah to fill — I only know Sarjan's email,
+  and inventing affiliations would be wrong.
+
+**Verification:** No local LaTeX toolchain here (`pdflatex` not installed),
+so I could not produce the PDF myself — flagged that the user compiles on
+Overleaf. I instead verified the inputs: re-derived the dataset counts from
+code, cross-checked every reported metric against `results/metrics.json`,
+and grepped the `.tex` to confirm no remaining non-standard package
+commands. The prose, numbers, and references are all consistent with the
+repo's actual results.
+
+**Outcome (plain language):** There is now a complete, submittable-quality
+first draft of the whole paper — every section, every number, every figure,
+and a dozen real references — written from our actual results, not invented.
+It's honest about what the results are and aren't, which is exactly what
+makes it credible. What's left is human work, not code: you and Prof. Shah
+read and humanise it, fill in your affiliations, confirm one reference's
+authors, and (once he picks a venue) reformat to that venue's template.
+I couldn't compile the PDF here because there's no LaTeX installed on this
+machine — that step happens on Overleaf, per `paper/README.md`.

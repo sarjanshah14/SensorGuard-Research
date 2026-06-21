@@ -214,39 +214,43 @@ the folder is kept via `.gitkeep`.
 ## Phase D — Paper Writing
 
 Per Sarjan's own ordering: easiest sections first, Abstract/Intro last.
+**A complete end-to-end first draft now exists at `paper/paper.tex`** (IEEE
+`IEEEtran` conference format). All sections below are drafted in it; what
+remains is review, humanising the prose, filling author placeholders, and
+reformatting to the final venue's template (E3). Boxes are ticked as
+"drafted"; final sign-off happens with the authors.
 
-### [ ] D1. Dataset section
-Describe SKAB: testbed, sensors, fault types, label semantics. Mostly
-factual — can be drafted now, doesn't depend on B3/B4 settling.
+### [x] D1. Dataset section
+Describe SKAB: testbed, sensors, fault types, label semantics.
+**Drafted** in `paper/paper.tex` §III with exact corpus figures.
 
-### [ ] D2. Methodology section
-Describe feature engineering, the 4 models, the train/test split — and
-explicitly the contamination decision from B3 (this section needs B3
-finished first, since "how we built the training set" is exactly what B3
-is fixing).
+### [x] D2. Methodology section
+Feature engineering (41 leakage-free features), the 6 models, the
+chronological per-file split, the 0%-contamination training set (B3), the
+whole-file validation split, and the contamination=0.35 choice (B4).
+**Drafted** in §IV.
 
-### [ ] D3. Results section
-Numbers + figures from B3/B4/C1. Depends on those being finalized.
+### [x] D3. Results section
+**Drafted** in §V: the 6-model table (sorted by F1), all 4 figures embedded
+from `results/figures/`, the confusion-matrix error analysis (IF catches
+1477/2252, 2608 false alarms), and the "why correlation-based models don't
+win" analysis. Numbers pulled directly from `results/metrics.json`.
 
-### [ ] D4. Related Work
-8–10 citations from Google Scholar/arXiv on sensor anomaly detection.
-Independent of the code — can be done in parallel with anything above.
-**In progress:** 12 real, verified citations gathered into `REFERENCES.md`
-(IEEE-formatted, each checked against publisher/arXiv/DOI), with a
-section-by-section map of which reference backs which claim. Covers the
-dataset [1], the surveys [2–4], all 6 models [5–9], application context
-[10–11], and scikit-learn [12]. One author list ([11]) still to confirm
-before final submission. Writing the actual Related Work prose around these
-is what remains.
+### [x] D4. Related Work
+8–10 citations on sensor anomaly detection.
+**Done:** 12 real, verified citations gathered into `REFERENCES.md`
+(IEEE-formatted, each checked against publisher/arXiv/DOI), and the Related
+Work prose (§II) is drafted around them. One author list ([11]) still to
+confirm before final submission.
 
-### [ ] D5. Discussion & Limitations
-Honest about: single dataset (SKAB only), no live deployment, future work.
-Can reuse the SensorGuard anomaly-taxonomy definitions (Drift/Spike/
-Dropout/Noise/Calibration Error) here as framing for "what kinds of faults
-exist beyond what SKAB labels."
+### [x] D5. Discussion & Limitations
+**Drafted** in §VI: modest absolute precision stated plainly, the wall-clock
+leak documented (F1 0.496→0.466), single-dataset/single-fault-family caveat,
+tabular-vs-sequence-models note, coarse contamination caveat.
 
-### [ ] D6. Abstract + Introduction
-Written last, once D1–D5 exist to summarize.
+### [x] D6. Abstract + Introduction
+**Drafted:** abstract (~200 words) + Introduction (§I) with explicit
+contribution list, written last to match the body.
 
 ---
 
@@ -266,9 +270,16 @@ Depends on D1–D6 and E3.
 
 ## Right now
 
-**Next task: start Phase D — paper writing.** ALL code work is now done —
-modeling (B1-B6), results/visualization (C1-C2), and model persistence (C3).
-The only thing left for the whole project is writing the paper, easiest
-sections first: D1 (Dataset) and D4 (Related Work) don't depend on anything
-else and can start immediately; D2 (Methodology) and D3 (Results) can pull
-directly from DEVLOG.md + results/metrics.json + the figures.
+**A complete end-to-end paper draft exists** (`paper/paper.tex`, IEEE format)
+covering D1–D6, built from the real results with 12 verified citations. All
+code work (B1–B6, C1–C3) and the full first draft are done. What remains is
+human-side, not code:
+1. **Authors review + humanise** the prose to taste; fill the author
+   placeholders (affiliations, emails).
+2. **Confirm ref [11]** author list against the published PDF.
+3. **E2 — Prof. Abhi Shah picks the venue** (the one true blocker).
+4. **E3 — reformat** to that venue's template (already IEEE-ready if the
+   venue is IEEE), then **E4 — submit**.
+Optional polish: a full contamination re-tune on the final 41-feature set
+(see D-limitations / B5 caveat), and adding 1–2 more Related Work citations
+if the venue wants deeper coverage.
