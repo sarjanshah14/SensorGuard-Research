@@ -31,7 +31,7 @@ reproducible (see CLAUDE.md, README.md; `python main.py`, `python -m experiments
 2. Baselines: PyOD set (HBOS, COPOD, ECOD, kNN, Deep SVDD), USAD, TranAD.
 3. Data: add HAI (public GitHub) + one non-water set (bearing/rotating machinery); request SWaT officially.
 4. Drift: run on winner + LSTM-AE; add periodic-retrain and ADWIN baselines; threshold ablation.
-5. Edge: real Raspberry Pi run if Sarjan has one (ASK), else reword as emulation.
+5. Edge: NO Raspberry Pi and no time (confirmed 2026-10-28). Reword everywhere as "Pi-class resource-constrained ARM64 container emulation"; keep the optimistic-latency caveat; real-Pi run stays future work.
 6. Rewrite refs to ~35-40, >=50% from 2020-26; drop tool cites. Fix captions, SWaT sentence, humanise language (impersonal voice, no "we").
 7. Update stale docs: WALKTHROUGH.md, README.md, CLAUDE.md, ROADMAP.md "Right now" (all still SKAB-only).
 
@@ -41,8 +41,15 @@ reproducible (see CLAUDE.md, README.md; `python main.py`, `python -m experiments
 - IEEE INDIN 2027 (Lisbon, 10-14 May 2027, deadline not found); IEEE CASE 2027 (Linz, Aug; deadline ~1 Mar 2027 per one listing, verify).
 - arXiv preprint in parallel. Avoid MDPI / IEEE Access (APCs).
 
+## LOW-EFFORT PATH (chosen constraint: no Pi, little time; Sarjan has ~30 min/day)
+Claude does the work; Sarjan only reviews. Cheapest changes with best score gain, in order:
+A. Text only (no experiments): rewrite refs (drop tool cites, add 2020-26 AD papers, verified real), fix captions, reword edge as emulation, fix SWaT sentence, humanise language, retitle to IJPHM scope (health monitoring).
+B. Quick scripts (minutes of compute on the Mac): AUROC/AUPRC for all models, 5 seeds with CIs, add PyOD baselines (HBOS/COPOD/ECOD/kNN), drift on the SWaT winner (Elliptic Envelope) + periodic-retrain baseline.
+C. Skip for now: HAI/bearing datasets, USAD/TranAD, real Pi, official SWaT request (mention as limitation/future work).
+Then submit to IJPHM, post arXiv preprint.
+
 ## Open questions for Sarjan
-Does he have a Raspberry Pi? Is Prof. Shah OK with a journal target? Official SWaT access?
+Is Prof. Shah OK with a journal target (IJPHM)? Official SWaT access? (Pi: answered, none.)
 
 ## Working rules (see CLAUDE.md + memory)
 Claude drives code; Sarjan reviews. Every session: update PROGRESS.md (one line), DEVLOG.md (narrative), ROADMAP.md, and this file. End chats with a plain-English summary. Paper voice is impersonal (no "we/our"). No TeX engine locally: compile on Overleaf (`paper/overleaf_paper1.zip`, regenerable, not in git).
