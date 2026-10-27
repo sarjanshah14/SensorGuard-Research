@@ -10,6 +10,13 @@ Current paper: `paper/paper1.tex` (Springer LLNCS). Final submitted PDF:
 `Shah_ICACS2026_Unsupervised_Anomaly_Detection.pdf`. Code/results all done and
 reproducible (see CLAUDE.md, README.md; `python main.py`, `python -m experiments.<name>`).
 
+## >>> CURRENT STAGE (read first) <<<
+Master-prompt revision project started 2026-10-28 (Sarjan pasted an 11-deliverable "paper rescue" prompt; message was truncated at section 19 "integrity rules").
+- Stage 1 DONE: `revision/AUDIT.md` (diagnosis, methodological audit, reviewer matrix, novelty audit, RQs, experiment plan E1-E10, evidence ledger) and `revision/LITERATURE.md` (search log + ~17 verified refs).
+- **CRITICAL FINDING:** the SWaT data used is mis-identified. The 395,298-row "normal" block is the normal rows of the ATTACK period; the genuine 7-day normal run (duplicated in the Kaggle copy, 7 channels blank) was discarded. All SWaT results (Tables 4, 6, Figs 5-7, 9-10, deep SWaT, edge SWaT) must be re-run under the standard protocol (E1). "1.44M rows" is wrong (~0.95M unique).
+- Other key flaws: thresholds tuned inconsistently (SKAB by F1 w/ old leaky features; SWaT by MCC on IF only); drift retraining uses ground-truth labels; no periodic-retrain baseline; edge latency is batch-amortised; in-container SWaT eval used training rows; single seed, no CIs.
+- NEXT: Stage 2 = run E1 (SWaT standard protocol) then E2/E3/E7 (thresholds, AUROC/AUPRC, seeds + block bootstrap, ablations), then E4 drift redo, E5 edge redo, E6 PyOD baselines. Then literature Stage 2, then rewrite (Deliverables 7-11).
+
 ## Status
 - ICACS 2026 (Paper ID 580): **REJECTED** 2026-10-28. Scores 56 and 49 of 100
   (pass = 60). No written comments. Weakest: references 4/10 (both), novelty 4-5,
