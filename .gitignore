@@ -6,3 +6,8 @@ __pycache__/
 
 # Trained model bundles are regenerable artifacts of `python main.py`
 results/models/*.joblib
+
+# Regenerable / third-party, not worth tracking
+paper/overleaf_paper1.zip
+paper/overleaf_paper1/
+Word+Latex-Template/

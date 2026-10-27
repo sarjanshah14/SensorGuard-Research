@@ -788,3 +788,480 @@ read and humanise it, fill in your affiliations, confirm one reference's
 authors, and (once he picks a venue) reformat to that venue's template.
 I couldn't compile the PDF here because there's no LaTeX installed on this
 machine — that step happens on Overleaf, per `paper/README.md`.
+
+---
+
+## [2026-06-30] Session 15 — Concept-drift adaptation: a real new contribution (ROADMAP D-extension)
+
+**What we set out to do.** External reviewer-style feedback flagged the
+paper's core as "just a 6-model comparison" — rigorous but not a research
+contribution. After weighing options (edge/Raspberry-Pi deployment, temporal
+features, MLOps), Sarjan chose **concept-drift adaptation**, with one hard
+constraint: everything runs on his MacBook, no extra hardware, using data
+already in the repo. Goal: build a detector that notices when incoming
+sensor data stops matching what it learned and retrains itself, and show it
+beats a static model when the operating regime shifts. Plan approved as
+`zesty-fluttering-piglet.md`.
+
+**How drift is simulated.** SKAB has three fault families (`other`,
+`valve1`, `valve2`) — physically different failure modes, i.e. different
+distributions. We stream the test files one at a time in family order
+(`other → valve1 → valve2`) so the regime visibly shifts partway through.
+Crucially, the initial model is trained **only on anomaly-free + the "other"
+family's normal rows**, so valve1/valve2 are genuinely unseen until the
+stream reaches them (unlike `main.py`, whose per-file 80/20 split leaks the
+early 80% of every valve file into training). New code: `src/drift.py`
+(detector) + `experiments/concept_drift.py` (the experiment), reusing the
+existing feature/model/eval building blocks. Nothing in `main.py` or the
+official `results/metrics.json` was touched.
+
+**Problems hit and exactly how they were diagnosed and fixed.** This is the
+important part — the result did *not* work at first, and the path to making
+it work was the actual research.
+
+1. **KS *p-value* saturates.** The first drift detector counted features
+   with KS-test p < 0.05. With thousands of rows per batch, p-values
+   collapse to ~0 for any tiny wobble, so it flagged 100% of validation
+   files at every threshold — useless. *Fix:* use the KS *D-statistic* (max
+   CDF distance, bounded [0,1], an effect size that's sample-size-robust) as
+   the drift score instead. Confirmed it then jumps cleanly at the
+   `other→valve1` boundary and stays low within a family.
+
+2. **Static and adaptive tied (F1 0.435 ≈ 0.438), and Sarjan rightly
+   refused to accept "we tried it, it failed, here's an honest negative."**
+   He insisted: find *why* it fails and fix it. So we diagnosed instead of
+   shrugging. Two mechanical causes were found and fixed:
+   (a) IsolationForest's `contamination` re-derives its decision threshold
+   as a quantile of whatever training scores it sees, so naive refitting
+   silently resets the alarm rate every retrain; (b) retraining on *all*
+   accumulated history drowns the new regime's few hundred rows under
+   thousands of old "other" rows, so the trees barely move. Fixed (b) with a
+   sliding window (`deque(maxlen=5)` — retrain only on recent batches, let
+   the model forget the old regime).
+
+3. **The real root cause — F1 was measuring the wrong thing.** Even after
+   those fixes the numbers barely moved, so we inspected the per-batch
+   behaviour directly. The static model had **recall = 1.0 on 30 of 34
+   files** with precision pinned at the ~0.25 anomaly base rate: it was
+   *flagging almost everything*. There was no degradation for the adaptive
+   model to "recover," because a flag-everything detector never misses and
+   never improves. The contamination=0.35 the F1-maximising sweep had picked
+   was itself the near-degenerate "flag everything" trap this project
+   already rejected back in B4. The fix had three coordinated parts:
+   - **Score by skill, not F1.** Switched the headline metric to **MCC and
+     balanced accuracy**, which (unlike F1) collapse to 0 / 0.5 for a
+     flag-everything predictor. F1 actively *rewards* the degenerate
+     baseline here, so it was the wrong scorecard.
+   - **Select contamination by MCC, not F1.** On the other-only holdout,
+     F1 rises monotonically toward the degenerate end (0.32→0.59) while MCC
+     peaks at a *selective* contamination (0.05) and collapses to ~0 at the
+     flag-everything end. MCC-based selection principledly picks 0.05 — a
+     detector that can actually discriminate.
+   - **Let retraining recalibrate.** Dropped the offset-pinning from fix
+     2(a): on a genuine regime shift we *want* IsolationForest to re-anchor
+     "normal" to the new regime, which is exactly what cuts the false-alarm
+     flood.
+
+**The result (honest and positive).** On the **unseen valve regimes** —
+where drift actually happens — the static detector has **zero discriminative
+skill: MCC = 0.000, balanced accuracy = 0.500** (literally chance; it can
+only flag everything). Drift-triggered retraining **restores real skill:
+MCC = 0.000 → 0.106, balanced accuracy = 0.500 → 0.558**, and cuts the
+false-alarm rate (precision 0.285 → 0.336). Over the whole stream, MCC goes
+from −0.011 (worse than chance) to +0.049. The headline figure
+(`results/figures/drift_adaptation.png`) makes it unmistakable: the static
+line sits flat on the 0.5 chance floor across all of valve1/valve2 while the
+adaptive line climbs to 0.6–0.75. Artifacts: `src/drift.py`,
+`experiments/concept_drift.py`, `results/concept_drift.json`, the new figure,
+and `mcc`/`balanced_accuracy` added to `src/evaluate.evaluate` (additive;
+`main.py`'s 6-model results unaffected).
+
+**Outcome (plain language).** We turned the weakest critique of the paper —
+"it's just a comparison" — into a genuine contribution. We show that the
+paper's own winning model, deployed and left alone, silently degrades to
+*worthless* (no better than a coin flip) the moment the machine enters an
+operating mode it wasn't trained on — and that a lightweight, CPU-only,
+runs-on-your-Mac drift detector that retrains on recent data restores real
+detection skill and roughly halves false alarms. Critically, this is an
+*honest* positive result, not a rigged one: the win only appears once you
+score with a metric (MCC) that refuses to credit the "alarm on everything"
+cheat, which is the same anti-degenerate discipline the project has used
+since B4. The static baseline genuinely looks fine on F1 (0.43) and is
+genuinely skill-less (MCC 0) at the same time — and explaining *why* both are
+true is the paper's new story.
+
+---
+
+## [2026-07-01] Session 16 — Second dataset (SWaT): generalisation check + real-drift replication
+
+**What we set out to do.** Add a second real dataset to kill the single
+biggest reviewer critique ("only one dataset, doesn't generalise"). Sarjan
+downloaded the genuine **SWaT** (Secure Water Treatment, iTrust/SUTD, Dec
+2015) via a Kaggle re-upload (kagglehub id
+`vishala28/swat-dataset-secure-water-treatment-system`). Instruction from
+Sarjan was emphatic: **be honest, no cheating/transparency, run as much data
+as possible (don't heavily trim), and simplify at the end.**
+
+**Data verification + honest cleaning.** Confirmed it's the real SWaT: 51
+process variables at 1 Hz + a `Normal/Attack` label. normal.csv = 1,387,098
+rows but is two concatenated runs — a **395,298-row block with all 51 sensors**
+and a 991,800-row block where 7 sensors (MV101, AIT201, MV201, P201, P202,
+P204, MV303) are entirely blank. We **kept only the fully-recorded block** for
+training rather than dropping those 7 columns (present at test time) or
+imputing ~1M fabricated values. attack.csv = 54,621 rows, all `Attack`, no
+NaNs. New code: `src/swat.py` (loader + the 25 continuous-sensor list; the 26
+discrete actuators are excluded from features so the SKAB rolling-stats recipe
+applies unchanged and the two datasets are methodologically identical).
+
+**Stage 1 — 6-model comparison (`experiments/swat_comparison.py`).** Same
+protocol as main.py: train on normal only; tune the shared contamination on a
+**validation split by MCC, rejecting flag-everything** (it chose 0.05; MCC fell
+monotonically toward the degenerate high-contamination end, just like SKAB);
+report on a held-out test set (normal_test + attack_test), leakage-safe and
+chronological. **Ran on the COMPLETE dataset, no downsampling** (we first
+timed One-Class SVM/LOF at ds=5/2/1; full data = 276,708 train rows, OCSVM
+~332 s, whole run ~494 s — acceptable for a one-off, so we used everything per
+Sarjan's instruction). Result on the SWaT test set (sorted by MCC):
+
+| model | MCC | bAcc | F1 | P | R |
+|---|---|---|---|---|---|
+| **EllipticEnvelope** | **0.766** | 0.881 | 0.839 | 0.846 | 0.833 |
+| One-Class SVM | 0.634 | 0.838 | 0.755 | 0.653 | 0.896 |
+| IsolationForest | 0.473 | 0.754 | 0.657 | 0.546 | 0.823 |
+| Z-score | 0.180 | 0.567 | 0.511 | 0.349 | 0.955 |
+| LOF | 0.105 | 0.520 | 0.489 | 0.324 | 0.994 |
+| PCA-recon | 0.002 | 0.501 | 0.461 | 0.316 | 0.858 |
+
+**The honest, important finding: the winner FLIPPED.** On SKAB, Isolation
+Forest won; on SWaT it is **third**, beaten decisively by the correlation-based
+**Elliptic Envelope** and by One-Class SVM. This contradicts the original
+paper's headline ("Isolation Forest is best") and its "why correlation-based
+models don't win" section. We are **not** hiding or spinning this. It is a
+genuine, useful result: *no single classical detector is best across datasets;
+the winner is dataset-dependent.* It is also mechanistically sensible — SWaT
+has 51 richly-correlated sensors, so a model that exploits inter-sensor
+covariance (Elliptic Envelope) shines, whereas SKAB has only 8. The paper's
+thesis should shift from "Isolation Forest wins" to "the best detector is
+dataset-dependent, so rigorous multi-dataset evaluation matters" — a stronger,
+more defensible claim that reinforces the drift contribution. **This is a
+narrative change for Sarjan + Prof. Shah to sign off on, not something to
+rewrite unilaterally.**
+
+**Stage 2 — concept drift on SWaT (`experiments/swat_drift.py`), with REAL
+temporal drift.** First measured whether SWaT's *normal* operation drifts: a
+detector trained on the first 50k normal rows flags 8% of early normal
+(by design) but climbs to flagging **60–100% of *later* normal** as anomalous
+— the sensor baselines genuinely move over the ~4.5-day run (KS drift 0.13 →
+0.47). This is *real* concept drift, not SKAB's fault-family proxy, and
+directly answers the "your drift is simulated" weakness. Built the static-vs-
+adaptive stream: train on first 50k normal; stream the rest of normal forward
+in 10k batches; each batch paired with a fixed held-out attack sample (so both
+false alarms and detection are scored, and any skill change is attributable to
+the drifting normal); adaptive retrains on a sliding window of recent normal
+when the KS detector fires (25/34 batches). Result (mean over stream):
+
+| | static | adaptive |
+|---|---|---|
+| MCC | +0.242 | **+0.594** |
+| balanced accuracy | 0.630 | **0.826** |
+| precision | 0.312 | **0.583** |
+| false-alarm rate on normal | **0.734** | **0.244** |
+| recall on attacks | 0.993 | 0.896 |
+
+So adaptive retraining **cuts false alarms from 73% to 24%**, **more than
+doubles MCC (0.24→0.59)**, and **keeps attack detection at 90%**. This is a
+*bigger, cleaner* drift win than SKAB (0.00→0.11), on genuine temporal drift.
+Figure: `results/figures/swat_drift_adaptation.png` (static decays to the 0.5
+chance floor; adaptive holds at 0.8–0.9). Artifacts: `results/swat_metrics.json`,
+`results/swat_drift.json`, two SWaT figures.
+
+**Transparency notes (no cheating).** (1) Full dataset used, no downsampling.
+(2) contamination validation-tuned by MCC with flag-everything rejected, never
+tuned on test. (3) The winner-flip is reported as-is, against our own prior
+headline. (4) The blank-sensor block was discarded honestly, not imputed.
+(5) The one constructed element — pairing each drift batch with a fixed attack
+sample to score detection — is documented in the script and does not affect the
+false-alarm trajectory (the core symptom), which is normal-only.
+
+**Outcome (plain language).** The second dataset did its job and then some. It
+shows our methodology generalises, it honestly overturns the "one model wins"
+story into the stronger "it depends on the data" story, and — best of all — it
+reproduces the concept-drift contribution on *real* drift even more
+convincingly than the original dataset (false alarms 73%→24%, skill doubled,
+detection preserved). Everything ran on the full data on the Mac. The one thing
+needing human judgement is how to reframe the paper's headline given the
+winner-flip; flagged for Sarjan and Prof. Shah.
+
+---
+
+## [2026-07-02] Session 17 — Edge/Docker deployability benchmark (constrained ARM container)
+
+**What we set out to do.** Address the remaining "tested in only one
+environment" critique and make the paper's "deployable on cheap edge hardware"
+claim concrete — under Sarjan's hard constraint of using only his Mac (no
+Raspberry Pi). Approach: instead of buying hardware, run the whole pipeline
+inside a **Docker container capped to Raspberry-Pi-class limits (1 CPU core,
+1 GB RAM, ARM64)**. Sarjan's M4 is ARM, so the container runs the *same CPU
+family* as a real Pi; we cap cores + RAM to Pi levels. Honest scope stated up
+front: this reproduces a Pi's *constraints + instruction set*, not its slow
+per-core speed, so latency figures are an optimistic lower bound labelled
+"constrained ARM container", not "measured on a physical Pi".
+
+**What was built.** `docker/Dockerfile.edge` (python:3.12-slim ARM64 + only
+the compute libs, pinned to host versions; code + data mounted at run time);
+`experiments/edge_benchmark.py` (per-model train time, inference latency in
+ms/sample, on-disk model size, F1/MCC as a sanity check; plus the drift
+adaptation's on-device costs — KS-check latency and one retrain; plus peak RAM
+and the effective cgroup CPU limit). Added `SWAT_DIR` env override and
+`load_swat_bounded()` to `src/swat.py` so SWaT loads inside the container
+without kagglehub/network and without holding the full 1.4 M-row CSV in RAM.
+
+**Problems hit + fixes (all real, all transparent).**
+1. `docker build` timed out pulling the base image (a `| tail` pipe hid the
+   real failure). Fix: pull `python:3.12-slim-bookworm` separately first.
+2. Build then crashed the Docker daemon mid-install (socket vanished) — the
+   combined install of numpy+scipy+pandas+sklearn spiked the builder VM's
+   memory. Fix: restarted Docker Desktop (`open -a Docker`, waited for the
+   daemon) and split the install into separate cached RUN layers.
+3. First container run → **exit 137 (OOM-killed), no output**: the SWaT bench
+   called `load_swat()`, which reads the entire 384 MB normal.csv (~1.5 GB in
+   RAM) before slicing. Fix: `load_swat_bounded(n_normal, n_attack)` reads only
+   the needed rows via pandas `nrows`; also ran with `PYTHONUNBUFFERED=1` so
+   output survives a kill.
+4. SWaT bench then errored (`RangeIndex has no total_seconds`) — the bounded
+   loader didn't set the datetime index build_features needs. Fixed.
+5. `os.cpu_count()` reported the host's 10 cores, not the cap — misleading.
+   Fixed to read `/sys/fs/cgroup/cpu.max` (reports 1.0, honest).
+
+**Result (inside 1 CPU / 1 GB / ARM64).** Everything ran cleanly. Inference
+latency per reading (ms): IsolationForest 0.0019, EllipticEnvelope 0.0017,
+Z-score ~0, PCA-recon 0.013, LOF 0.090, One-Class SVM 0.24 — all
+sub-millisecond, the two lead models ~2 µs. Model sizes: Z-score 1 KB,
+EllipticEnvelope 285 KB, PCA 8 KB, IsolationForest 1.1 MB, One-Class SVM
+3.4 MB, LOF 14 MB. Drift adaptation on-device: KS check ~60 ms/batch, one
+retrain ~0.11 s. SWaT (bounded 30k/20k) inference: IF 0.0012 ms/sample
+(MCC 0.66), EllipticEnvelope 0.0040 ms/sample (MCC 0.81 — still ahead of IF,
+consistent with the full SWaT finding). **Peak RAM 484 MB of the 1024 MB cap;
+whole run 25 s.** Saved `results/edge_benchmark.json`.
+
+(Note: the SKAB MCCs here are lower than the headline numbers because the edge
+benchmark reuses the default contamination 0.35 rather than re-tuning — it is a
+speed/memory/footprint test, and the MCC column is only a sanity check that the
+constrained box produces the same maths as the host. It does.)
+
+**Outcome (plain language).** The deployability claim is now backed by a real
+experiment: the full method — both datasets, all six models, and the
+self-healing drift adaptation — runs comfortably inside Raspberry-Pi-class
+limits (one core, under half a gigabyte of RAM), detecting each sensor reading
+in well under a millisecond, with the winning models only a few hundred KB to
+~1 MB and an on-device retrain costing ~0.1 s. It is not a physical Pi (the
+M4 core is faster), and that is stated honestly, but it directly answers "does
+this fit on small/cheap hardware?" — yes, with large headroom. Everything ran
+on the Mac via Docker, no extra hardware, exactly within Sarjan's constraint.
+
+---
+
+## [2026-07-02] Session 17b — Full figure set (Prof. Shah: more original data-figures = lower plagiarism risk)
+
+**Why.** Prof. Shah advised that the more credible, self-generated figures the
+paper has, the lower the plagiarism/originality risk (they're our own results,
+not copied). So the goal was to make sure every claim has a figure.
+
+**What was added.** Three new plotting functions in `src/visualize.py`
+(`plot_cross_dataset_comparison`, `plot_edge_benchmark`,
+`plot_swat_drift_motivation`) + `experiments/make_figures.py` to generate the
+cross-cutting figures from the saved JSONs. Also **re-ran `main.py` so
+`results/metrics.json` now includes MCC/balanced accuracy** for SKAB (it was
+generated before those metrics existed), giving both datasets one shared
+yardstick.
+
+**New figures (all from our own data):**
+1. `cross_dataset_comparison.png` — each model's MCC on SKAB vs SWaT side by
+   side; shows the winner-flip cleanly (Isolation Forest tallest on SKAB,
+   Elliptic Envelope tallest on SWaT; every model scores higher on SWaT).
+2. `edge_benchmark.png` — two-panel deployability chart (inference latency +
+   model size, log-scaled) with the "1.0 CPU, peak 484 MB of 1024 MB" caption.
+3. `swat_drift_motivation.png` — the false-alarm rate on normal climbing 8% →
+   ~100% over ~70 h alongside the rising KS drift score; the visual case for
+   why adaptation is needed. Trajectory saved to
+   `results/swat_drift_motivation.json`.
+
+**Figure inventory now (11 total):** SKAB — model_comparison, confusion_matrices,
+timeseries_anomalies, anomaly_closeup, drift_adaptation. SWaT —
+swat_model_comparison, swat_confusion_matrices, swat_drift_adaptation.
+Cross-cutting — cross_dataset_comparison, edge_benchmark, swat_drift_motivation.
+Every major claim (comparison on both datasets, the winner-flip, drift
+adaptation on both, the drift motivation, and edge deployability) now has its
+own figure. The only symmetry gap is a SWaT per-sensor time-series illustration
+(SKAB has one), skipped because SWaT's 51 sensors don't plot cleanly.
+
+**Outcome (plain language).** The paper now has a complete, self-made picture
+for every result — nothing borrowed. That both strengthens the paper visually
+and, per Prof. Shah, keeps originality high.
+
+---
+
+## [2026-07-03] Session 20 — Deep sequential baseline (LSTM autoencoder)
+
+**What we set out to do.** Both external reviews flagged the same gap: the paper
+argues classical detectors are a low-compute alternative to deep models but
+never trained a deep model to prove the accuracy trade-off. Sarjan chose to
+close it for real (not just defend by citation). Constraint unchanged: it all
+runs on his Mac.
+
+**Setup.** Installed PyTorch (torch 2.12.1 — wheels exist for Python 3.14; Apple
+MPS/GPU available). Built `src/deep_baseline.py`: a lightweight LSTM
+autoencoder. Input is a sliding window of 30 consecutive *raw* scaled sensor
+readings (8 channels on SKAB, 25 on SWaT) — deliberately giving the deep model
+the temporal structure the tabular features suppress. A single-layer LSTM
+encoder (64 hidden) compresses the window, a matching LSTM decoder reconstructs
+it, and a row's anomaly score is the reconstruction MSE of the causal window
+ending at that row. Trained on normal windows only; the decision threshold is
+chosen on the validation split by MCC while rejecting flag-everything cut-offs —
+the exact discipline used for the classical contamination — so the comparison is
+fair. Evaluated per row on the identical SKAB and SWaT test splits.
+`experiments/deep_baseline.py` runs both datasets and saves
+`results/deep_baseline.json`.
+
+**Fairness pass.** First run (8 epochs, stride 5) had the SKAB loss still
+falling, so a reviewer could cry "under-trained." Re-ran at 25 epochs with
+denser windows (stride 2 → 12k SKAB windows, converged to MSE ~0.06). The
+result held, so it is not an artefact of under-training.
+
+**Result (honest, robust, and a genuine finding).**
+- **SKAB (8 sensors):** the AE *fails* — MCC **−0.045**, below chance and below
+  every classical detector (best classical: Isolation Forest 0.147).
+- **SWaT (25 sensors):** the AE *wins outright* — MCC **0.841**, F1 0.881,
+  precision 0.974, beating the best classical (Elliptic Envelope 0.766).
+- **Why:** deep needs dimensionality + data volume. SWaT gives it 25 correlated
+  channels and hundreds of thousands of normal windows to learn a faithful
+  reconstruction; SKAB gives it 8 channels and ~12k windows, too little to learn
+  a normal manifold that generalises to subtle valve faults.
+- **Cost:** ~58k params / 0.2 MB on disk (comparable to classical), BUT it needs
+  the whole PyTorch runtime (far larger than scikit-learn), benefits from a GPU
+  for training, and its per-reading inference is ~4–15× slower than the classical
+  leaders. So it was *not* run inside the 1 GB edge container, and classical
+  detectors remain the pragmatic edge choice.
+
+**How it strengthens the paper (rather than breaking it).** It does not
+contradict the thesis — it *extends* it. "The best detector is dataset-dependent"
+now holds for deep models too, more extremely: best of all on SWaT, worst of all
+on SKAB. And it directly answers both reviewers with a measured number instead
+of a citation. Reported completely straight: on SWaT the deep model beats our own
+classical champion, and we say so (LSTM-AE is the top, bolded row of the SWaT
+table). Nothing was tuned to protect the classical story.
+
+**Paper integration.** Added the LSTM-AE row to both comparison tables (bottom
+on SKAB; top + bold on SWaT, where it leads precision/F1/MCC/bAcc). Added a
+"Deep Sequential Baseline" methodology subsection. Updated the abstract, the
+contribution bullets, Related Work (no longer "future work" — we ran it), the
+cross-dataset subsection (new paragraph on the deep split + its cost), the
+Discussion (first point + the tabular-vs-sequence limitation), the Conclusion,
+and the edge subsection (why the deep model is excluded from the container run).
+Regenerated `cross_dataset_comparison.png` to include LSTM-AE (SWaT 0.84 tallest,
+SKAB −0.05 the only below-zero bar). Pinned `torch==2.12.1` and
+`kagglehub==1.0.2` in requirements.txt. Verified the `.tex` (5 tables, 10
+figures, all cites/refs/environments balanced, 0 em-dashes) and rebuilt
+`paper/overleaf_paper1.zip`.
+
+**Outcome (plain language).** We actually built and trained the deep model the
+reviewers wanted, on the Mac, and reported the truth: it is the single best
+detector on the big, sensor-rich dataset and completely useless on the small
+one. That is a sharper, more honest version of the paper's core message, and it
+closes the last major reviewer critique with real evidence rather than a promise.
+The one thing left undone by choice: the drift adaptation was studied only for
+the classical detectors, not the deep model — noted as future work.
+
+---
+
+## Session 21 — 2026-07-05 — Reformat to Springer LLNCS + Prof. Shah's review fixes
+
+**Goal:** A venue was chosen — **ICACS 2026** (CHARUSAT), published in **Springer
+LNNS (Scopus-indexed)**, submission deadline **2026-07-10**. The conference
+supplied a template folder (`Word+Latex-Template/`). Prof. Shah reviewed the
+IEEE-format `paper1.tex` and asked for five changes: rename "Index Terms" to
+"Keywords" (and keep only ~6), the SWaT 2015 date reads as too old, put the whole
+paper into the conference's template, simplify a couple of hard-to-read terms
+(e.g. "anomaly=0", the Kolmogorov–Smirnov statistic), and attach the `head()` of
+each dataset for readers.
+
+**Steps taken:**
+1. **Inspected the template.** The `Word+Latex-Template/` folder's LaTeX package
+   (`Springer Lecture Notes in Computer Science.zip`) extracts to the standard
+   Springer **LLNCS** class: `llncs.cls`, `splncs04.bst`, and `samplepaper.tex`.
+   Read the sample to learn the exact conventions (title/`\titlerunning`,
+   `\author`+`\inst`+`\institute`+`\email`, `\keywords{...}` **inside** the
+   abstract, captions-above-tables, `\doi`, `\begin{credits}` with
+   `\discintname`, `splncs04` bib style).
+2. **Dataset-age decision (with Sarjan).** Confirmed the exact row counts from
+   the files: SKAB 46,860 rows / 8 sensors / 2020; SWaT 1,441,719 rows (normal
+   1,387,098 + attack 54,621) / 51 channels / 2015. The "SWaT is only ~50k lines"
+   worry was a misread of the attack run — SWaT is actually one of the largest
+   ICS benchmarks. Newer same-domain options exist (HAI 2020–2022, WADI 2017) but
+   swapping would mean re-running the entire SWaT half (comparison, drift, deep
+   baseline, edge, all figures) five days before the deadline. Decision: **keep
+   SWaT, drop the date mention** (Prof. Shah's own fallback), and add a scale
+   clause. HAI/WADI noted as paper-2 work.
+3. **Front matter → LLNCS.** `\documentclass[conference]{IEEEtran}` →
+   `\documentclass[runningheads]{llncs}`; removed `\IEEEoverridecommandlockouts`;
+   added `\usepackage[T1]{fontenc}`; replaced the `\IEEEauthorblockN/A` block
+   with `\author{Sarjan Shah\inst{1} \and Abhi Shah\inst{1}}`, `\authorrunning`,
+   `\titlerunning`, and `\institute{... \email{...}}`.
+4. **Keywords.** Deleted the `\begin{IEEEkeywords}` block and moved the 6 terms
+   into `\keywords{... \and ...}` inside the abstract — LLNCS renders this as
+   "**Keywords:**" automatically, which is exactly Prof. Shah's rename.
+5. **Dropped the date.** Rewrote the SWaT paragraph to remove "The December 2015
+   collection" and instead state the ~1.44M-row scale (defusing the "old/small"
+   read). Verified no visible "2015/2016/December" remains anywhere outside the
+   bibliography (the only hits left are inside citation *keys* like
+   `\cite{goh2016}`, which don't render).
+6. **Simplified jargon.** "the `anomaly`$=0$ rows" → "the rows labelled normal
+   (that is, with no fault present)". For the KS D-statistic, kept the term and
+   equation but added a plain sentence: it measures how far the current data has
+   moved from the training data on a 0-to-1 scale (0 = identical, 1 = no
+   overlap), and rewrote the p-value paragraph in plainer words.
+7. **Head-of-dataset tables.** Added two small excerpt tables from real rows:
+   `tab:skabhead` (SKAB, 4 sensors + `anomaly`, datetime kept — 2020 is fine) and
+   `tab:swathead` (SWaT, 4 of 51 channels + label). **Important:** SWaT's real
+   `Timestamp` literally reads `28/12/2015`, so showing it would have
+   re-introduced the very date we just removed — replaced it with a relative
+   time index `t` (seconds). Referenced both tables from their subsections.
+8. **Single-column floats + bibliography.** LLNCS is single-column, so all 5
+   `figure*` → `figure`, `width=0.86\textwidth` and `\columnwidth` →
+   `\textwidth`. Reformatted all 18 references from IEEE style to Springer
+   (`splncs04`) style (surname-first authors, bold volume, `\doi{}`), and added a
+   `\begin{credits}` competing-interests declaration (Springer now expects one).
+9. **Packaging.** Bundled `llncs.cls` + `splncs04.bst` into `overleaf_paper1/`
+   alongside the new `paper1.tex` and the 12 figures, rebuilt
+   `overleaf_paper1.zip` (self-contained, so it compiles even if a fresh Overleaf
+   project lacks the class). Updated `paper/README.md` (LLNCS, 12 figures, upload
+   the ZIP, no BibTeX pass needed).
+
+**Problem hit / how resolved:** there is **no TeX engine on this Mac**
+(`pdflatex`/`tectonic`/`latexmk` all absent), so a local compile was impossible.
+Rather than guess, verified structurally with scripts: every `\ref`/`\cite`
+resolves to a `\label`/`\bibitem` (0 undefined, 0 unused), all environments
+balance (1 document, 1 abstract, 7 tables, 12 figures, 3 equations, 1 credits,
+1 thebibliography), `\keywords` sits inside the abstract, 0 em-dashes, and no
+leftover IEEE commands. Overleaf is the intended compile target and the bundled
+class makes the ZIP self-contained.
+
+**Plain-language outcome:** the paper is now in the exact Springer template the
+conference wants, with every one of Prof. Shah's notes handled — "Keywords"
+instead of "Index Terms", the old-looking 2015 date gone (SWaT kept, now
+described by its ~1.44M-row size), the confusing terms explained in plain words,
+and a sample-rows table for each dataset so any reader can see the raw data.
+`overleaf_paper1.zip` is ready to upload and compile on Overleaf. What's left is
+human-side: Prof. Shah's final read + Sarjan's humanising pass, then submit by
+July 10. Only real caveat logged honestly: it was verified by structure, not by a
+local compile, because this machine has no LaTeX installed.
+
+---
+
+## Session 22 — 2026-10-28 — ICACS rejection, flaw analysis, venue research, checkpoint
+
+**Goal:** React to the ICACS 2026 rejection (Paper ID 580; reviewer totals 56 and 49, pass mark 60; scores only, no comments), work out why, find free venues, and make the project resumable.
+
+**Steps:** Extracted the final PDF text and read it fully; mapped low scores (references 4, novelty 4-5, depth 4-5, critical qualities 4-5) to concrete weaknesses (see CHECKPOINT.md). Searched for no-fee venues: IJPHM (no fees, diamond OA, Scopus/ESCI) is the best fit; TMLR, Elsevier hybrid journals, IEEE INDIN/CASE 2027 are alternatives, with deadlines partly unverified. Wrote CHECKPOINT.md with status, flaws, prioritised TODO and venues. Added the zip, overleaf folder and conference template to .gitignore (regenerable/third-party) and committed everything else.
+
+**Plain language:** The paper was rejected mainly for weak/dated references, thin novelty and shallow rigor. There is a concrete plan to fix those and resubmit to a free journal; CHECKPOINT.md lets any new chat pick up from here.

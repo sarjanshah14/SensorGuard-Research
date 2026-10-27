@@ -211,6 +211,160 @@ the folder is kept via `.gitkeep`.
 
 ---
 
+## Phase F — Research Contribution: Concept-Drift Adaptation
+
+Added after reviewer-style feedback flagged the plain 6-model comparison as
+not a research contribution. Turns the study's own winning model into the
+subject of a new question: what happens when a deployed detector meets an
+operating regime it was never trained on? Runs entirely on the Mac, no extra
+hardware, on data already in the repo. Does **not** touch `main.py` or the
+official `results/metrics.json`.
+
+### [x] F1. Drift detector (`src/drift.py`)
+**What:** A streaming drift score + `DriftDetector`. **Done.** Uses the KS
+two-sample **D-statistic** (mean across features), not the p-value: with
+thousands of rows per batch the p-value saturates and flags 100% of files
+regardless of real change. The D-statistic is a bounded, sample-size-robust
+effect size. `DriftDetector.check(window)` returns `(drifted, score)` and
+`update_reference()` re-anchors after a retrain.
+
+### [x] F2. Concept-drift experiment (`experiments/concept_drift.py`)
+**What:** Stream test files by fault family (`other → valve1 → valve2`);
+the initial IsolationForest trains **only on "other"** so valve1/valve2 are
+genuinely unseen. Two tracks scored batch-by-batch: **static** (never
+retrains) vs **adaptive** (retrains on a sliding window of the most recent
+normal-labeled batches when drift fires). **Done.** Run via
+`python -m experiments.concept_drift`; saves `results/concept_drift.json`.
+
+### [x] F3. Make the result real, not a rigged or null finding
+**What:** Get a genuine, honest positive result. **Done — the key methodology
+work.** Diagnosed why the first runs tied: the static model *flags everything*
+on unseen regimes (recall 1.0, precision ≈ base rate), so F1 rewards a
+skill-less baseline and there's nothing to "recover." Fixes: (1) score by
+**MCC + balanced accuracy** (which collapse to 0 / 0.5 for flag-everything),
+not F1; (2) **select contamination by MCC** on the other-only holdout (→0.05,
+selective) rather than F1 (→0.35, the B4 flag-everything trap); (3) let
+retraining recalibrate to the new regime (sliding window, no offset pinning).
+Result: on the unseen valve regimes the static model has **zero skill (MCC
+0.000, balanced acc 0.500)** while adaptive **restores skill (MCC 0.106,
+balanced acc 0.558)** and cuts false alarms (precision 0.285→0.336).
+
+### [x] F4. Headline figure (`plot_drift_adaptation` in `src/visualize.py`)
+**What:** Skill (balanced accuracy) over the regime-shifting stream, static vs
+adaptive, with fault-family bands, retrain markers, and the 0.5 chance line.
+**Done.** `results/figures/drift_adaptation.png`: static flatlines on the 0.5
+floor across all of valve1/valve2; adaptive climbs to 0.6–0.75.
+
+### [ ] F5. Fold concept-drift into the paper
+**What:** New subsection (methodology + results + the figure) framing the
+contribution: a deployed static detector silently degrades to chance under
+regime shift; lightweight CPU-only drift adaptation restores real skill.
+**Next.** Reframe the paper's narrative around this so it's no longer "just
+a comparison." Also still open from the edge-pivot memo: surface the
+latency/memory numbers already in `metrics.json`.
+
+---
+
+## Phase G — Second Dataset (SWaT): generalisation + real-drift replication
+
+Added to answer the biggest reviewer critique ("single dataset, doesn't
+generalise"). Uses the genuine SWaT (Secure Water Treatment, iTrust/SUTD,
+Dec 2015) testbed via a Kaggle re-upload. Full data, no downsampling, all on
+the Mac. Does not touch SKAB results.
+
+### [x] G1. Verify + load SWaT honestly (`src/swat.py`)
+**Done.** Confirmed real SWaT (51 vars @1 Hz + Normal/Attack label). Kept only
+the fully-recorded 395,298-row normal block (a 991,800-row block has 7 blank
+sensors — discarded, not imputed) + 54,621 attack rows. Features use the 25
+continuous sensors with the unchanged SKAB rolling-stats recipe (26 discrete
+actuators excluded), so the two datasets are methodologically identical.
+
+### [x] G2. 6-model comparison on SWaT (`experiments/swat_comparison.py`)
+**Done — honest winner-flip.** Same protocol as main.py; contamination
+validation-tuned to 0.05 by MCC (flag-everything rejected); leakage-safe
+held-out test. **Elliptic Envelope wins (MCC 0.766) > One-Class SVM (0.634) >
+Isolation Forest (0.473)** — IF, the SKAB winner, is only 3rd. Reported as-is.
+Finding: the best classical detector is dataset-dependent (correlation
+structure pays off on SWaT's 51 richly-correlated sensors).
+
+### [x] G3. Concept drift on SWaT — REAL temporal drift (`experiments/swat_drift.py`)
+**Done — bigger win than SKAB.** SWaT normal genuinely drifts over the ~4.5-day
+run (a static detector's false-alarm rate on normal climbs 8% → 60–100%).
+Static vs adaptive over 34 batches (25 retrains): MCC 0.242 → 0.594, balanced
+accuracy 0.630 → 0.826, false alarms 73% → 24%, attack recall 0.99 → 0.90.
+Figure `results/figures/swat_drift_adaptation.png`. This is *real* drift, not a
+proxy — it answers the "your drift is simulated" limitation directly.
+
+### [ ] G4. Decide paper reframing + fold SWaT in
+**Needs author input.** The winner-flip changes the paper's headline from
+"Isolation Forest wins" to "best detector is dataset-dependent; rigorous
+multi-dataset evaluation + drift adaptation matter." Run by Prof. Shah before
+rewriting §V/§"why correlation models don't win"; then add a SWaT subsection
+(comparison table + the SWaT drift figure/result) alongside the SKAB sections.
+
+---
+
+## Phase H — Edge/Docker Deployability Benchmark
+
+Answers the "tested in only one environment" critique and backs the paper's
+"deployable on cheap edge hardware" claim — Mac-only, no Raspberry Pi, per
+Sarjan's constraint. Uses Docker to impose Pi-class limits on the Mac.
+
+### [x] H1. Constrained-container benchmark (`experiments/edge_benchmark.py`, `docker/Dockerfile.edge`)
+**Done.** Ran the full pipeline inside a Docker container capped to **1 CPU,
+1 GB RAM, ARM64** (same CPU family as a Raspberry Pi). Measures per-model train
+time, inference latency (ms/sample), on-disk size, plus the drift adaptation's
+on-device costs (KS check ~60 ms/batch, retrain ~0.11 s), peak RAM, and the
+effective cgroup CPU limit. Supporting code: `src.swat.load_swat_bounded` +
+`SWAT_DIR` env override (loads SWaT in-container without network / without
+holding the full CSV in RAM).
+
+**Result:** everything fits with headroom. Inference 0.0012–0.24 ms per reading
+(IsolationForest/EllipticEnvelope ~2 µs); model sizes 1 KB–14 MB (leads:
+EllipticEnvelope 285 KB, IsolationForest 1.1 MB); **peak RAM 484 MB of the
+1024 MB cap**; 25 s total. `results/edge_benchmark.json`. Honest scope: matches
+a Pi's constraints + ARM instruction set, not its slower per-core speed, so
+latency is an optimistic lower bound ("constrained ARM container", not a
+physical Pi).
+
+### [ ] H2. Fold the deployability numbers into the paper
+**Next (with the SWaT fold-in, G4).** Add a short "Deployability / edge" table
+(latency, model size, RAM footprint, retrain cost under Pi-class limits) — this
+also closes the long-open edge-pivot gap (latency/memory numbers were in
+metrics.json but never surfaced in the paper body). Optionally note a real
+Raspberry Pi as future work for true on-device timing.
+**Done in `paper1.tex`** (Table tab:edge + Fig fig:edge).
+
+---
+
+## Phase I — Deep Sequential Baseline (reviewer request)
+
+Both external peer reviews (session 19) asked for a deep baseline to prove the
+classical-vs-deep accuracy trade-off. Done for real, on the Mac.
+
+### [x] I1. LSTM autoencoder (`src/deep_baseline.py`, `experiments/deep_baseline.py`)
+**Done.** PyTorch 2.12 (Apple MPS). Lightweight single-layer LSTM AE over
+30-step windows of raw scaled sensors; reconstruction-error score; threshold
+tuned on validation by MCC (anti-degenerate), same discipline as classical;
+evaluated per row on the identical SKAB + SWaT test splits. `torch`/`kagglehub`
+pinned in requirements.txt.
+
+### [x] I2. Honest split result (`results/deep_baseline.json`)
+**Done — robust across 8 and 25 epochs.** SKAB: the AE FAILS (MCC −0.045, below
+chance and below every classical model). SWaT: the AE WINS outright (MCC 0.841 >
+Elliptic Envelope 0.766). Extends "best detector is dataset-dependent" to deep
+models, more extremely. Cost: needs PyTorch runtime + GPU, ~4–15× slower
+inference than the classical leaders, so classical stays the edge choice.
+
+### [x] I3. Fold the deep baseline into the paper
+**Done.** LSTM-AE row in both tables (top+bold on SWaT), a Deep Sequential
+Baseline methodology subsection, and updates to abstract / contributions /
+Related Work / cross-dataset / Discussion / Conclusion / edge note.
+`cross_dataset_comparison.png` regenerated to include it. `overleaf_paper1.zip`
+rebuilt. Note: drift adaptation on the deep model is left as future work.
+
+---
+
 ## Phase D — Paper Writing
 
 Per Sarjan's own ordering: easiest sections first, Abstract/Intro last.
@@ -259,12 +413,17 @@ contribution list, written last to match the body.
 ### [x] E1. Paper title decided and ready to send
 "Comparative Evaluation of Unsupervised Machine Learning Models for
 Multivariate Sensor Anomaly Detection in Industrial Systems" — confirmed.
-### [ ] E2. Prof. Abhi Shah finds venue/conference
-Blocked on him, not on us — title (E1) is what he needed to start.
-### [ ] E3. Format paper to venue's template
-Depends on E2 (template depends on which venue).
+### [x] E2. Prof. Abhi Shah finds venue/conference
+Venue chosen: **ICACS 2026** (2nd Int. Conf. on AI, Communication Technologies &
+Smart Cities, CHARUSAT), published in **Springer LNNS, Scopus-indexed**. Paper
+submission deadline **2026-07-10**.
+### [x] E3. Format paper to venue's template
+`paper1.tex` reformatted from IEEEtran into the conference's **Springer LLNCS**
+class (`llncs.cls` + `splncs04.bst`), with Prof. Shah's review fixes folded in
+(Index Terms→Keywords, SWaT date dropped, jargon simplified, dataset-excerpt
+tables added). `overleaf_paper1.zip` bundles the class so it is self-contained.
 ### [ ] E4. Final submission
-Depends on D1–D6 and E3.
+Depends on Prof. Shah's final review + humanising pass, then upload by 2026-07-10.
 
 ---
 

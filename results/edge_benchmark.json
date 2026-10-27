@@ -1,0 +1,74 @@
+{
+  "env": {
+    "cpu_limit_cgroup": 1.0,
+    "note": "run under docker --cpus=1 --memory=1g on ARM64 (Pi-class limits)"
+  },
+  "skab": [
+    {
+      "model": "Z-score",
+      "train_s": 0.001,
+      "infer_ms_per_sample": 0.0,
+      "size_KB": 1.0,
+      "f1": 0.411,
+      "mcc": 0.063
+    },
+    {
+      "model": "One-Class SVM",
+      "train_s": 11.411,
+      "infer_ms_per_sample": 0.2415,
+      "size_KB": 3377.4,
+      "f1": 0.406,
+      "mcc": 0.055
+    },
+    {
+      "model": "LOF",
+      "train_s": 2.543,
+      "infer_ms_per_sample": 0.0901,
+      "size_KB": 13963.3,
+      "f1": 0.378,
+      "mcc": 0.04
+    },
+    {
+      "model": "PCA-recon",
+      "train_s": 0.038,
+      "infer_ms_per_sample": 0.0132,
+      "size_KB": 8.2,
+      "f1": 0.37,
+      "mcc": 0.01
+    },
+    {
+      "model": "EllipticEnvelope",
+      "train_s": 2.893,
+      "infer_ms_per_sample": 0.0017,
+      "size_KB": 285.0,
+      "f1": 0.418,
+      "mcc": 0.086
+    },
+    {
+      "model": "IsolationForest",
+      "train_s": 0.17,
+      "infer_ms_per_sample": 0.0019,
+      "size_KB": 1133.7,
+      "f1": 0.466,
+      "mcc": 0.147
+    }
+  ],
+  "drift": {
+    "drift_check_ms_per_batch": 59.77,
+    "retrain_s": 0.107
+  },
+  "swat": {
+    "IsolationForest": {
+      "infer_ms_per_sample": 0.0012,
+      "size_KB": 1051.1,
+      "mcc": 0.661
+    },
+    "EllipticEnvelope": {
+      "infer_ms_per_sample": 0.004,
+      "size_KB": 308.3,
+      "mcc": 0.812
+    }
+  },
+  "peak_ram_mb": 483.7,
+  "total_wall_s": 25.0
+}

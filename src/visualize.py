@@ -134,6 +134,233 @@ def plot_time_series_with_anomalies(df, pred_col, model_name, out_path=None):
     return _plot_sensor_panels(df, pred_col, title, out_path)
 
 
+STATIC_COLOR = "#6B7280"    # grey — the never-updated baseline
+ADAPTIVE_COLOR = "#2563EB"  # blue — the drift-adaptive model
+RETRAIN_COLOR = "#16A34A"   # green — retrain events
+
+
+def plot_drift_adaptation(static_records, adaptive_records, out_path=None,
+                          metric="balanced_accuracy"):
+    """Headline figure for the concept-drift experiment: a chosen skill
+    metric over the stream, static vs adaptive, with the test files ordered
+    by fault family (the regime shift). balanced_accuracy is the default
+    because its 0.5 line is an interpretable "no better than chance" floor:
+    the static model sits on that floor across the unseen valve regimes
+    (it can only flag-everything there), while the adaptive model rises
+    above it after drift-triggered retrains. Driven by the per-batch records
+    in results/concept_drift.json, so it regenerates independently of
+    main.py's 6-model figures.
+    """
+    out_path = out_path or os.path.join(FIGURES_DIR, "drift_adaptation.png")
+    s = pd.DataFrame(static_records)
+    a = pd.DataFrame(adaptive_records)
+    x = np.arange(len(s))
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    # shade contiguous fault-family bands so the regime shift is visible
+    families = list(s["family"])
+    band_colors = {"other": "#F3F4F6", "valve1": "#FEF3C7", "valve2": "#FFE4E6"}
+    start = 0
+    for i in range(1, len(families) + 1):
+        if i == len(families) or families[i] != families[start]:
+            fam = families[start]
+            ax.axvspan(start - 0.5, i - 0.5, color=band_colors.get(fam, "#F3F4F6"),
+                       alpha=0.7, zorder=0)
+            ax.text((start + i - 1) / 2, 0.02, fam, ha="center", va="bottom",
+                    fontsize=9, color="#6B7280")
+            start = i
+
+    ax.axhline(0.5, color="#9CA3AF", linestyle=":", linewidth=1,
+               label="chance (0.5)")
+    ax.plot(x, s[metric], "-o", color=STATIC_COLOR, markersize=4,
+            label="static (never retrains)")
+    ax.plot(x, a[metric], "-o", color=ADAPTIVE_COLOR, markersize=4,
+            label="adaptive (retrains on drift)")
+
+    for xi in x[a["retrained"].to_numpy()]:
+        ax.axvline(xi, color=RETRAIN_COLOR, linestyle="--", linewidth=1, alpha=0.6)
+    # one proxy handle for the retrain markers in the legend
+    ax.plot([], [], color=RETRAIN_COLOR, linestyle="--", linewidth=1,
+            label="retrain event")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(s["source_file"], rotation=90, fontsize=6)
+    ax.set_ylabel(metric.replace("_", " "))
+    ax.set_ylim(0, 1)
+    ax.set_title("Concept-drift adaptation: skill over the regime-shifting stream")
+    ax.legend(fontsize=8, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
+SKAB_COLOR = "#0EA5E9"      # sky — SKAB dataset
+SWAT_COLOR = "#9333EA"      # violet — SWaT dataset
+
+
+def plot_cross_dataset_comparison(results_by_dataset, metric="mcc", out_path=None,
+                                  model_order=None):
+    """Grouped bars: each model's `metric` on SKAB vs SWaT, side by side. This
+    is the "the best detector is dataset-dependent" figure -- Isolation Forest
+    leads on SKAB, Elliptic Envelope on SWaT. results_by_dataset maps a dataset
+    label to its list of per-model result dicts (each with 'model' + metric).
+    model_order defaults to the six classical models; pass an extended list to
+    include the deep baseline.
+    """
+    out_path = out_path or os.path.join(FIGURES_DIR, "cross_dataset_comparison.png")
+    order = model_order or MODEL_ORDER
+    labels, colors = list(results_by_dataset.keys()), [SKAB_COLOR, SWAT_COLOR]
+    lookup = {ds: {r["model"]: r.get(metric, 0.0) for r in rows}
+              for ds, rows in results_by_dataset.items()}
+
+    x = np.arange(len(order))
+    width = 0.8 / len(labels)
+    fig, ax = plt.subplots(figsize=(12, 5))
+    for i, ds in enumerate(labels):
+        vals = [lookup[ds].get(m, 0.0) for m in order]
+        bars = ax.bar(x + i * width, vals, width, label=ds,
+                      color=colors[i % len(colors)])
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v + (0.01 if v >= 0 else -0.03),
+                    f"{v:.2f}", ha="center", va="bottom" if v >= 0 else "top", fontsize=7)
+    ax.axhline(0, color="#9CA3AF", linewidth=0.8)
+    ax.set_xticks(x + width * (len(labels) - 1) / 2)
+    ax.set_xticklabels(order, rotation=20, ha="right")
+    ax.set_ylabel(metric.upper())
+    ax.set_title(f"The best detector is dataset-dependent ({metric.upper()} per model)")
+    ax.legend(title="Dataset")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
+def plot_edge_benchmark(skab_rows, out_path=None, ram_mb=None, cpu=None):
+    """Two-panel deployability figure from the constrained-container run:
+    per-model inference latency (ms/sample) and on-disk model size (KB), both
+    log-scaled because they span orders of magnitude. Backs the "runs on cheap
+    edge hardware" claim.
+    """
+    out_path = out_path or os.path.join(FIGURES_DIR, "edge_benchmark.png")
+    by_name = {r["model"]: r for r in skab_rows}
+    models = [m for m in MODEL_ORDER if m in by_name]
+    latency = [by_name[m]["infer_ms_per_sample"] for m in models]
+    size = [by_name[m]["size_KB"] for m in models]
+
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 5))
+    for ax, vals, title, ylab, fmt in [
+        (a1, latency, "Inference latency (lower = faster)", "ms per reading (log)", "{:.4f}"),
+        (a2, size, "Model size on disk (lower = lighter)", "KB (log)", "{:.0f}"),
+    ]:
+        bars = ax.bar(models, vals, color="#2563EB")
+        ax.set_yscale("log")
+        ax.set_title(title)
+        ax.set_ylabel(ylab)
+        ax.set_xticklabels(models, rotation=20, ha="right")
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v, fmt.format(v),
+                    ha="center", va="bottom", fontsize=7)
+    cap = "Constrained ARM container"
+    if cpu is not None:
+        cap += f": {cpu} CPU"
+    if ram_mb is not None:
+        cap += f", peak {ram_mb:.0f} MB of 1024 MB"
+    fig.suptitle(f"Edge deployability — {cap}")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
+def plot_swat_drift_motivation(positions_h, fp_rate, ks_drift, out_path=None):
+    """Why drift matters on SWaT: a static detector trained on early normal
+    data has its false-alarm rate on *later normal* data climb toward 100% as
+    the sensor baselines drift, tracked by the rising KS drift score. Dual
+    y-axis over the timeline (hours since training window).
+    """
+    out_path = out_path or os.path.join(FIGURES_DIR, "swat_drift_motivation.png")
+    fig, ax1 = plt.subplots(figsize=(11, 5))
+    ax1.plot(positions_h, np.array(fp_rate) * 100, "-o", color=TRUE_SHADE,
+             label="false-alarm rate on normal")
+    ax1.set_xlabel("hours into the run (past the training window)")
+    ax1.set_ylabel("false alarms on NORMAL data (%)", color=TRUE_SHADE)
+    ax1.tick_params(axis="y", labelcolor=TRUE_SHADE)
+    ax1.set_ylim(0, 105)
+
+    ax2 = ax1.twinx()
+    ax2.plot(positions_h, ks_drift, "-s", color="#2563EB", label="KS drift score")
+    ax2.set_ylabel("KS drift score vs. training data", color="#2563EB")
+    ax2.tick_params(axis="y", labelcolor="#2563EB")
+    ax2.set_ylim(0, max(0.6, max(ks_drift) * 1.1))
+
+    ax1.set_title("SWaT normal operation drifts: a static detector decays into "
+                  "flagging everything")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
+def plot_training_loss(losses_by_dataset, out_path=None):
+    """LSTM-autoencoder training convergence: reconstruction MSE per epoch for
+    each dataset. Shows the model was trained to convergence (rebuts an
+    ``under-trained'' reading of the deep result)."""
+    out_path = out_path or os.path.join(FIGURES_DIR, "deep_training_loss.png")
+    colors = {"SKAB": SKAB_COLOR, "SWaT": SWAT_COLOR}
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for ds, losses in losses_by_dataset.items():
+        ax.plot(np.arange(1, len(losses) + 1), losses, "-o", ms=3,
+                color=colors.get(ds), label=ds)
+    ax.set_yscale("log")
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("training reconstruction MSE (log)")
+    ax.set_title("LSTM autoencoder training convergence")
+    ax.legend(title="Dataset")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
+def plot_recon_error_hist(panels, out_path=None):
+    """Why the deep model separates on one dataset and not the other: per-panel
+    box plots (log scale) of the reconstruction error for normal vs. anomaly
+    rows, with the decision threshold. panels is a list of
+    (title, scores, labels, threshold). Box plots are used rather than
+    histograms because the anomaly errors span several orders of magnitude,
+    which a density histogram smears into invisibility. A clear gap between the
+    boxes (SWaT) means the error separates the classes; overlapping boxes
+    (SKAB) mean it does not. Fliers are hidden so the boxes stay readable."""
+    out_path = out_path or os.path.join(FIGURES_DIR, "deep_recon_error.png")
+    fig, axes = plt.subplots(1, len(panels), figsize=(5 * len(panels), 4.5))
+    if len(panels) == 1:
+        axes = [axes]
+    for ax, (title, scores, labels, thr) in zip(axes, panels):
+        s = np.clip(np.asarray(scores, dtype=float), 1e-5, None)
+        y = np.asarray(labels)
+        bp = ax.boxplot([s[y == 0], s[y == 1]], positions=[1, 2], widths=0.6,
+                        showfliers=False, patch_artist=True,
+                        medianprops=dict(color="black"))
+        for patch, c in zip(bp["boxes"], ["#374151", TRUE_SHADE]):
+            patch.set_facecolor(c)
+            patch.set_alpha(0.6)
+        ax.axhline(thr, color="#2563EB", linestyle="--", linewidth=1.2,
+                   label="threshold")
+        ax.set_yscale("log")
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(["normal", "anomaly"])
+        ax.set_ylabel("reconstruction error (log)")
+        ax.set_title(title)
+        ax.legend(fontsize=8)
+    fig.suptitle("Deep model reconstruction error by class")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=DPI)
+    plt.close(fig)
+    return out_path
+
+
 def plot_anomaly_closeup(df, pred_col, model_name, out_path=None, window_seconds=30):
     """Zoom to ±window_seconds around the first changepoint (fall back to the
     first anomaly onset if a file has no marked changepoint)."""

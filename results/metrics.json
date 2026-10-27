@@ -4,83 +4,95 @@
     "precision": 0.3288948069241012,
     "recall": 0.5484014209591475,
     "f1": 0.4111869485600133,
+    "mcc": 0.062783506075249,
+    "balanced_accuracy": 0.5342464160594633,
     "confusion_matrix": {
       "tn": 2731,
       "fp": 2520,
       "fn": 1017,
       "tp": 1235
     },
-    "train_time_s": 0.0017792080179788172,
-    "inference_time_s": 0.0005172499804757535
+    "train_time_s": 0.0013480419293045998,
+    "inference_time_s": 0.00042679195757955313
   },
   {
     "model": "One-Class SVM",
     "precision": 0.32570659488559894,
     "recall": 0.5373001776198935,
     "f1": 0.4055639349756997,
+    "mcc": 0.055228696648979184,
+    "balanced_accuracy": 0.5301240937613845,
     "confusion_matrix": {
       "tn": 2746,
       "fp": 2505,
       "fn": 1042,
       "tp": 1210
     },
-    "train_time_s": 7.338766624976415,
-    "inference_time_s": 2.206771125027444
+    "train_time_s": 7.815960499923676,
+    "inference_time_s": 2.186982417013496
   },
   {
     "model": "LOF",
     "precision": 0.32132877988202424,
     "recall": 0.45959147424511543,
     "f1": 0.37822035446738533,
+    "mcc": 0.04008411158620329,
+    "balanced_accuracy": 0.5216449087089222,
     "confusion_matrix": {
       "tn": 3065,
       "fp": 2186,
       "fn": 1217,
       "tp": 1035
     },
-    "train_time_s": 0.353917290980462,
-    "inference_time_s": 0.14188308297889307
+    "train_time_s": 0.3374881250783801,
+    "inference_time_s": 0.14321237499825656
   },
   {
     "model": "PCA-recon",
     "precision": 0.3050115207373272,
     "recall": 0.4702486678507993,
     "f1": 0.370020964360587,
+    "mcc": 0.009851180032427584,
+    "balanced_accuracy": 0.5053585750223335,
     "confusion_matrix": {
       "tn": 2838,
       "fp": 2413,
       "fn": 1193,
       "tp": 1059
     },
-    "train_time_s": 0.005664875032380223,
-    "inference_time_s": 0.000971208035480231
+    "train_time_s": 0.013246875023469329,
+    "inference_time_s": 0.0009555419674143195
   },
   {
     "model": "EllipticEnvelope",
     "precision": 0.3418827508455468,
     "recall": 0.5386323268206039,
     "f1": 0.4182758620689655,
+    "mcc": 0.08625030028416833,
+    "balanced_accuracy": 0.5469775612392869,
     "confusion_matrix": {
       "tn": 2916,
       "fp": 2335,
       "fn": 1039,
       "tp": 1213
     },
-    "train_time_s": 0.5175269159954041,
-    "inference_time_s": 0.0009322499972768128
+    "train_time_s": 0.5140572079690173,
+    "inference_time_s": 0.0008940420811995864
   },
   {
     "model": "IsolationForest",
     "precision": 0.3615667074663403,
     "recall": 0.6558614564831261,
     "f1": 0.46615117563515857,
+    "mcc": 0.14650426255628832,
+    "balanced_accuracy": 0.5795970775083694,
     "confusion_matrix": {
       "tn": 2643,
       "fp": 2608,
       "fn": 775,
       "tp": 1477
     },
-    "train_time_s": 0.10540012497222051,
-    "inference_time_s": 0.013742292008828372
+    "train_time_s": 0.1039564999518916,
+    "inference_time_s": 0.013885000022128224
   }
 ]

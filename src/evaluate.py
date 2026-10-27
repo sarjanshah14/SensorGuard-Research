@@ -4,18 +4,38 @@ import json
 import time
 
 import pandas as pd
-from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    balanced_accuracy_score,
+    confusion_matrix,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+)
 
 from src.models import MODELS
 
 
 def evaluate(y_true, y_pred, model_name: str) -> dict:
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+    # MCC and balanced accuracy are reported alongside F1 because, unlike F1,
+    # they collapse to ~0 / 0.5 for a degenerate "flag everything" predictor
+    # (precision = base rate, recall = 1). On the concept-drift stream the
+    # static model degenerates exactly that way on unseen regimes, so F1
+    # alone would credit it with skill it doesn't have (see
+    # experiments/concept_drift.py). matthews_corrcoef is undefined when a
+    # batch has only one true class; guarded to 0.0 there.
+    try:
+        mcc = float(matthews_corrcoef(y_true, y_pred))
+    except ValueError:
+        mcc = 0.0
     return {
         "model": model_name,
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),
+        "mcc": mcc,
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "confusion_matrix": {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)},
     }
 

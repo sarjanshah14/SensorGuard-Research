@@ -1,0 +1,19 @@
+# Minimal edge/Raspberry-Pi-class image for the deployability benchmark.
+# On an Apple-Silicon host this builds ARM64 (linux/arm64) -- the same CPU
+# family as a Raspberry Pi. Only the compute libraries are installed (no
+# matplotlib/streamlit) to keep the footprint small; the project code and
+# datasets are mounted at run time, so no rebuild is needed to re-run.
+FROM python:3.12-slim-bookworm
+
+# pinned to the host versions the pipeline was validated against. Split into
+# separate layers so each install step has a lower peak memory footprint (the
+# combined install can crash a memory-limited Docker builder VM) and so a
+# rebuild resumes from the last cached layer.
+RUN pip install --no-cache-dir numpy==2.4.6
+RUN pip install --no-cache-dir scipy==1.17.1
+RUN pip install --no-cache-dir pandas==3.0.3
+RUN pip install --no-cache-dir joblib==1.5.3 scikit-learn==1.9.0
+
+WORKDIR /app
+ENV PYTHONPATH=/app
+CMD ["python", "-W", "ignore", "-m", "experiments.edge_benchmark"]
