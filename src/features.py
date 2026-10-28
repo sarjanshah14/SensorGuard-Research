@@ -19,7 +19,7 @@ SENSOR_COLS = [
 
 
 def build_features(df: pd.DataFrame, group_col: str | None = None, sensor_cols=None,
-                   include_clock: bool = False):
+                   include_clock: bool = False, include_elapsed: bool = True):
     """Build a causal feature matrix from raw SKAB sensor columns.
 
     Returns (X, feature_names): X is an (n_rows, n_features) float ndarray
@@ -43,7 +43,8 @@ def build_features(df: pd.DataFrame, group_col: str | None = None, sensor_cols=N
         if include_clock:
             feats["hour"] = ts.hour.values
             feats["day_of_week"] = ts.dayofweek.values
-        feats["time_since_start"] = (ts - ts[0]).total_seconds().values
+        if include_elapsed:  # off in the revised protocol: unbounded in deployment, train/test ranges differ
+            feats["time_since_start"] = (ts - ts[0]).total_seconds().values
 
         for col in sensor_cols:
             s = g[col].reset_index(drop=True)

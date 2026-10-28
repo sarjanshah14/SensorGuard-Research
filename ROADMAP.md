@@ -427,18 +427,19 @@ Depends on Prof. Shah's final review + humanising pass, then upload by 2026-07-1
 
 ---
 
+## Phase R — Revision after ICACS rejection (2026-10-28)
+
+### [x] R1. Audit paper vs code/data (`revision/01_02_04_05_06_stage1_audit.md`)
+Found the SWaT split error, inconsistent thresholds, label-using drift retraining, batch-amortised latency.
+### [x] R2. Literature review (`revision/03_literature_review.md`) — 39 verified references
+### [x] R3. Re-run all experiments under fixed protocols (`experiments/revision/`, `results/revised/`)
+### [x] R4. Rewrite paper (`paper/paper2_revised.tex`), change log, final assessment, venue strategy
+### [ ] R5. Rerun on official SWaT (iTrust) — needs Sarjan/Prof. Shah to request the data
+### [ ] R6. Prof. Shah approves new framing; compile on Overleaf; convert to IJPHM template
+### [ ] R7. Submit to IJPHM (+ arXiv preprint)
+
+---
+
 ## Right now
 
-**A complete end-to-end paper draft exists** (`paper/paper.tex`, IEEE format)
-covering D1–D6, built from the real results with 12 verified citations. All
-code work (B1–B6, C1–C3) and the full first draft are done. What remains is
-human-side, not code:
-1. **Authors review + humanise** the prose to taste; fill the author
-   placeholders (affiliations, emails).
-2. **Confirm ref [11]** author list against the published PDF.
-3. **E2 — Prof. Abhi Shah picks the venue** (the one true blocker).
-4. **E3 — reformat** to that venue's template (already IEEE-ready if the
-   venue is IEEE), then **E4 — submit**.
-Optional polish: a full contamination re-tune on the final 41-feature set
-(see D-limitations / B5 caveat), and adding 1–2 more Related Work citations
-if the venue wants deeper coverage.
+See `CHECKPOINT.md` (top section). The revised paper exists; the remaining steps (R5-R7) need people, not code.

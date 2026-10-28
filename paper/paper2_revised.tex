@@ -1,0 +1,831 @@
+%% paper2_revised.tex - revised manuscript after the ICACS-2026 rejection.
+%% Venue-neutral article format with author-year citations (IJPHM uses APA
+%% style; swap in the IJPHM template once the target is confirmed).
+%% Every number in this file comes from results/revised/*.json; see
+%% revision/08_change_log.md for what changed and why.
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[round,authoryear]{natbib}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{figures/}{./}}
+
+\title{Protocol Choices Decide the Winner: A Re-examination of Lightweight
+Unsupervised Anomaly Detectors for Industrial Sensor Data, with Retraining
+Policies and Resource Costs}
+\author{Sarjan Shah \and Abhi Shah\\[2pt]
+\small Department of Information Technology, Lok Jagruti University, Vadodara, Gujarat, India\\
+\small \texttt{shahsarjan968@gmail.com}, \texttt{abhi.shah@ljku.edu.in}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Comparisons of unsupervised anomaly detectors for industrial sensor data often
+report a winning method, but the winner can depend on evaluation choices that are
+rarely varied. This paper re-examines an earlier six-detector comparison on two
+public water-system benchmarks, SKAB and SWaT, after an audit found that its SWaT
+copy (a public re-upload) placed the attack period's normal rows in the file named
+for normal operation, that thresholds were calibrated with different rules for
+different detectors, and that its drift adaptation selected retraining data with
+ground-truth labels. Nine lightweight detectors and a small LSTM autoencoder are
+evaluated under standard protocols with threshold-free metrics (AUROC, AUPRC),
+threshold-dependent metrics under two calibration rules, event recall and
+block-bootstrap confidence intervals. On SWaT's standard split, all ten detectors
+rank attacks equally well (AUROC $0.83$--$0.86$, overlapping intervals); on SKAB
+with pooled training, none is reliably better than chance, while SKAB's per-run
+protocol yields run-level AUROC up to $0.79$ and an inverted ranking. Protocol choices
+moved MCC by up to $0.8$ for the same detector. With thresholds set only from normal
+data, the $z$-score, One-Class SVM and Isolation Forest were the most dependable on
+SWaT (MCC $0.64$--$0.72$), while LOF, PCA reconstruction and the autoencoder raised
+alarms on about 70\% of normal readings in the attack week. In a streaming
+simulation, SWaT's normal operation drifted enough to raise a static Isolation
+Forest's false-alarm rate from 12\% to 76\%; retraining restored detection only when
+retraining data were known to be normal, drift-triggered retraining was no better
+than a schedule with the same budget, and label-free retraining failed. Single-reading
+cost in a one-CPU, 1\,GB container ranged from microseconds to over 100\,ms. The
+results argue for choosing detectors by threshold stability and retraining needs and
+for reporting protocols in enough detail to tell which of these a benchmark number
+measures.
+\end{abstract}
+
+\noindent\textbf{Keywords:} unsupervised anomaly detection; multivariate time
+series; evaluation protocol; concept drift; retraining policy; resource-constrained inference
+
+\section{Introduction}
+
+Pumps, valves and treatment plants are instrumented with sensors whose joint
+behaviour changes before or during a fault. Because faults and attacks are rare
+and costly to label, condition monitoring often relies on \emph{unsupervised}
+(novelty) detectors that are fitted to normal operation and flag departures from
+it \citep{chandola2009}. For an engineer choosing such a detector for a
+resource-limited monitoring node, three practical questions matter: which
+detector separates anomalies from normal operation best, whether that answer
+survives the passage of time once the detector is deployed, and what the
+detector costs to run.
+
+Published comparisons give less guidance on these questions than their
+headline numbers suggest. Large benchmark studies report that no family of
+methods is consistently best and that deep models often do not beat
+well-chosen classical ones \citep{audibert2022,schmidl2022,sarfraz2024}. A
+parallel line of work shows that evaluation choices, such as point adjustment,
+metrics that reward trivial detectors, and flawed benchmark labels, can
+manufacture apparent progress \citep{kim2022,garg2021,wu2023,liu2024}. These
+critiques concern mainly metrics and labels. Less attention has been paid to
+the other protocol choices an applied study must make: how the training and
+test data are defined, how a detection threshold is calibrated, and, once
+deployed, how and on which data a detector is retrained.
+
+This paper started as a six-detector comparison on two industrial benchmarks,
+the Skoltech Anomaly Benchmark (SKAB) \citep{skab} and the Secure Water
+Treatment testbed (SWaT) \citep{goh2016,mathur2016}. An audit of that study
+found that its conclusions depended on such protocol choices. The SWaT copy that
+was used (a public re-upload) stores the normal-labelled rows of the attack
+period in the file named for normal operation, so the original study trained
+on the normal intervals \emph{between} attacks rather than on the separate
+normal run. Thresholds had been calibrated with different rules for different
+models, and the drift-adaptation experiment selected its retraining data using
+ground-truth labels. Rather than only correcting these points, the revised
+study measures how much each choice changes the conclusions.
+
+The contributions are empirical and methodological, not algorithmic:
+\begin{enumerate}
+\item A controlled comparison of nine lightweight unsupervised detectors and a
+small LSTM autoencoder on SKAB and SWaT under standard, documented protocols,
+reported with threshold-free metrics (AUROC, AUPRC), threshold-dependent
+metrics (MCC, event recall, false-alarm rate) and block-bootstrap confidence
+intervals (Section~\ref{sec:results}).
+\item A protocol-sensitivity analysis showing how the split definition, the
+training protocol and the threshold rule change the measured performance and
+the ranking of detectors (Section~\ref{sec:protocol}).
+\item A retraining-policy study on SWaT's genuine normal run and attack period
+that compares never, periodic, drift-triggered and continuous retraining, with
+retraining data selected with or without labels (Section~\ref{sec:drift}).
+\item Single-reading latency, throughput, model size and peak memory for every
+detector inside a one-CPU, 1\,GB ARM64 container (Section~\ref{sec:edge}).
+\end{enumerate}
+
+The study answers four research questions:
+\begin{description}
+\item[RQ1] Under standard, documented protocols with uncertainty estimates, do
+lightweight detectors differ in how well they rank anomalies on SKAB and SWaT?
+\item[RQ2] How much do the split definition, the training protocol and the
+threshold rule change measured performance and the ranking of detectors?
+\item[RQ3] Does drift-triggered retraining outperform periodic or continuous
+retraining, and what happens when retraining data are selected without labels?
+\item[RQ4] What does each detector cost per reading under a one-CPU, 1\,GB
+memory cap?
+\end{description}
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Detectors.} Classical unsupervised detectors differ in what they
+treat as normal. Distance- and density-based methods such as the Local Outlier
+Factor (LOF) score a point by the relative density of its neighbourhood
+\citep{breunig2000}; boundary methods such as the One-Class SVM enclose the
+bulk of the training data \citep{scholkopf2001}; covariance methods flag large
+Mahalanobis distances, with the Minimum Covariance Determinant (MCD) giving a
+robust estimate \citep{rousseeuw1999}; PCA reconstruction scores the residual
+outside a low-rank normal subspace \citep{shyu2003}; Isolation Forest isolates
+points by random partitioning \citep{liu2008}; and the histogram- and
+copula-based HBOS, COPOD and ECOD combine per-feature tail probabilities and are
+fast and nearly parameter-free \citep{goldstein2016,li2022ecod,zhao2019}. Deep
+sequence models, including LSTM encoder-decoders \citep{malhotra2016},
+prediction-error detectors \citep{hundman2018}, adversarial autoencoders
+\citep{audibert2020}, graph networks \citep{deng2021} and transformers
+\citep{tuli2022}, report strong results on SWaT, usually with protocols and
+metrics that differ from paper to paper.
+
+\paragraph{What benchmark studies agree on.} Comparisons that put conventional,
+machine-learning and deep detectors side by side find that no family wins
+consistently \citep{audibert2022}, that multivariate problems are harder on
+average \citep{schmidl2022}, and that simple or linear baselines match many
+recent deep models once inflated metrics are removed \citep{sarfraz2024}. Tabular
+benchmarks reach similar conclusions \citep{goldstein2016,han2022}. A result of
+the form ``detector X wins on dataset A but not on B'' is therefore expected
+and is not, on its own, a contribution.
+
+\paragraph{Where evaluations go wrong.} Point adjustment credits a whole event
+when any of its points is flagged and can make random scores look competitive
+\citep{kim2022}. Point-wise F1 and accuracy can reward detectors that flag
+almost everything, which the Matthews correlation coefficient (MCC) does not
+\citep{chicco2020,garg2021}. Threshold-dependent metrics make comparisons hinge
+on the threshold rule; threshold-free AUC measures and their range-aware
+extensions avoid this \citep{paparrizos2022,liu2024}, and range-based
+precision and recall account for events rather than points \citep{tatbul2018}.
+Benchmark data can itself be flawed \citep{wu2023}. These studies examine metrics
+and labels; the protocol choices examined here (split semantics, threshold
+calibration rule, and the label assumption in retraining) are complementary.
+
+\paragraph{Drift and retraining.} Concept-drift research distinguishes
+detecting a change, understanding it and adapting to it \citep{gama2014,lu2018}.
+Two-sample tests on feature distributions are a simple and competitive way to
+detect shift \citep{rabanser2019}; adaptive windows such as ADWIN resize the
+reference automatically \citep{bifet2007}; streaming anomaly benchmarks such as
+NAB score detectors online \citep{ahmad2017}. For an anomaly detector, adapting
+to drift carries a specific risk: data used for retraining may contain the very
+anomalies the detector should flag. Our search found no study that compares
+drift-triggered with periodic retraining at matched cost on SWaT or quantifies
+the effect of selecting retraining data with versus without labels; this is a
+statement about the search performed (documented in the supplementary
+literature log), not a claim of absence.
+
+\paragraph{Resource cost.} MLPerf Tiny measures accuracy, latency and energy of
+single inferences on constrained hardware, including an anomaly-detection task
+\citep{banbury2021}. Comparable cost reporting for classical multivariate
+detectors on industrial data is rare. Here, cost is measured as single-reading
+latency, batch throughput, model size, load time and peak memory under explicit
+CPU and memory caps. Energy is not measured.
+
+\section{Datasets}
+\label{sec:data}
+
+\paragraph{SKAB.} SKAB was recorded on a water-circulation testbed (pump,
+pipes, valves) with eight sensors sampled at 1\,Hz: two accelerometers (RMS),
+motor current, pressure, water temperature, pump-housing temperature, voltage
+and volumetric flow rate \citep{skab}. It contains one 9{,}401-row anomaly-free
+run and 34 fault runs (46{,}860 rows in total) in three families: valve~1
+(16 runs), valve~2 (4) and other faults (14). Faults are physically induced and
+labelled per second. Each file is an independent experiment.
+
+\paragraph{SWaT.} SWaT is a six-stage water-treatment plant with 51 sensors and
+actuators sampled at 1\,Hz \citep{goh2016,mathur2016}. The standard release has a
+seven-day normal run (22--28 December 2015, 496{,}800 rows) and an
+attack period (28 December--2 January, 449{,}919 rows) in which 54{,}621 rows
+(12.1\%) are labelled as attacks. The copy used in this study is a public
+re-upload (Kaggle, \texttt{vishala28/swat-dataset-secure-water-treatment-system}, v3)
+in which (i) \texttt{normal.csv} contains the normal run twice and, in its first
+395{,}298 rows, the normal-labelled rows of the attack period, and (ii)
+\texttt{attack.csv} contains only the 54{,}621 attack rows. In this copy seven
+channels are blank throughout the normal run (MV101, AIT201, MV201, P201, P202,
+P204, MV303). The standard split was reconstructed by de-duplicating the normal
+run by timestamp and merging the attack-period rows of both files in time order,
+which reproduces the published row counts. The 24 continuous sensors that are
+present in both periods are used (AIT201, a continuous analyser, is excluded
+because it is blank in the normal run). Following common practice, the first
+21{,}600 rows of the normal run (start-up stabilisation) are discarded
+\citep{li2019madgan}. Results should be re-checked on the official iTrust release.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Features}
+For each continuous sensor, the raw value, 5-second and 30-second causal
+rolling means, a 5-second rolling standard deviation and the first difference
+are computed (40 features on SKAB, 120 on SWaT). Features are computed on each
+complete recording \emph{before} any rows are removed, so windows never join
+readings across a removed fault and, at test time, use only past readings.
+The original study's elapsed-time feature was removed: its range differs between
+training (up to 9{,}960\,s on SKAB) and test segments (at most 291\,s), and it
+has no meaning for a monitor that runs continuously. Its effect is reported
+in Section~\ref{sec:protocol}. Wall-clock features remain excluded because they
+leak the identity of the recording session.
+
+\subsection{Detectors}
+Nine classical detectors are evaluated, all producing a continuous anomaly score:
+a maximum absolute $z$-score; PCA reconstruction error (95\% of variance);
+Elliptic Envelope (robust MCD on ten whitened principal components, needed
+because the features are collinear); Isolation Forest (100 trees); One-Class SVM
+(RBF kernel, $\nu{=}0.1$); LOF ($k{=}20$, novelty mode); and ECOD, COPOD and
+HBOS from PyOD \citep{zhao2019}, with library defaults. On SWaT, One-Class SVM and
+LOF are fitted on a 20{,}000-row evenly spaced subsample of the training data
+because their cost grows quadratically; all other detectors use every training
+row. The deep baseline is an LSTM autoencoder (one-layer encoder and decoder,
+64 hidden units, $\approx$\,52k--58k parameters) on 30-second windows of raw
+scaled sensors, trained for 25 epochs with Adam; a row's score is the
+reconstruction error of the window ending at that row \citep{malhotra2016}.
+All models are fitted on normal rows only.
+
+\subsection{Threshold rules}
+\label{sec:thr}
+A score becomes an alarm when it exceeds a threshold $\tau$. Because the
+comparison should not depend on one rule, two rules are applied identically to
+every detector:
+\begin{itemize}
+\item \textbf{Label-free:} $\tau$ is the 99th percentile of scores on held-out
+\emph{normal} data, so about 1\% of normal readings are expected to raise an
+alarm. No anomaly labels are used.
+\item \textbf{Validation-MCC:} $\tau$ maximises MCC on a labelled validation
+set that contains anomalies, excluding thresholds that flag more than 99\% of
+rows. This is semi-supervised calibration and is reported as such.
+\end{itemize}
+A third rule, maximising validation F1, is used only to show how much the
+original study's choice of F1 mattered.
+
+\subsection{Splits}
+\paragraph{SKAB, pooled protocol.} As in the original study, each fault run is
+split chronologically into its first 80\% and last 20\%. The training portions of
+20\% of the runs (whole runs, fixed seed) form a labelled validation set; the
+model is trained on the anomaly-free run plus the normal rows of the remaining
+training portions; the last 20\% of every run is the test set (7{,}503 rows,
+30.0\% anomalous).
+\paragraph{SKAB, benchmark protocol.} The SKAB reference implementation trains
+a model per run on its first 400 rows and tests on the rest. This protocol is
+also reported, with the label-free threshold set from each run's own training
+scores, so results can be read against the SKAB leaderboard.
+\paragraph{SWaT, standard protocol.} Detectors are trained on the normal run
+from row 21{,}601 to 85\% of its length; the last 15\% is held-out normal data
+for the label-free threshold; the first third of the attack period is the
+labelled validation set for the validation-MCC threshold. Threshold-free metrics
+and label-free results are reported on the full attack period; both threshold
+rules are also compared on its last two thirds, which neither rule has seen.
+
+\subsection{Metrics and uncertainty}
+AUROC and average precision (AUPRC) summarise ranking quality independent of
+any threshold. At a threshold, precision, recall, F1, MCC, false-alarm rate on
+normal rows, event recall (the fraction of contiguous anomalous segments with at
+least one alarm) and median detection delay are reported. MCC is
+\begin{equation}
+\mathrm{MCC}=\frac{TP\cdot TN-FP\cdot FN}{\sqrt{(TP+FP)(TP+FN)(TN+FP)(TN+FN)}},
+\end{equation}
+which is zero for any predictor independent of the labels, including one that
+flags every row; F1 for that predictor equals $2\pi/(1+\pi)$ for anomaly
+prevalence $\pi$ (0.46 on the SKAB test set), which is why F1 alone can credit
+a detector that separates nothing \citep{chicco2020}. Precision is bounded by
+prevalence in the same way: with false-alarm rate $f$ and recall $r$,
+$\mathrm{precision}=\pi r/(\pi r+(1-\pi)f)$, so the same detector looks much
+worse in precision on SWaT ($\pi{=}0.121$) than on a test set built with
+$\pi{=}0.315$, as in the original study.
+Test rows are strongly autocorrelated, so 95\% confidence intervals are
+obtained by resampling whole blocks with replacement: the 34 test files on SKAB
+and non-overlapping one-hour blocks on SWaT. The same resamples are used for
+every detector, so paired differences are valid. Isolation Forest is repeated
+over ten seeds and the LSTM autoencoder over three seeds on SKAB.
+
+\subsection{Drift and retraining}
+The retraining study simulates deployment on SWaT. An initial model is fitted
+on the first 50{,}000 normal rows after start-up (about 14 hours). The
+remainder of the normal week and then the attack period are streamed in
+one-hour batches; each batch is scored \emph{before} it can be used for
+retraining. Four policies are compared: \emph{static} (never retrain);
+\emph{drift-triggered} (retrain when the mean two-sample Kolmogorov--Smirnov
+statistic between the batch and the current reference,
+$\bar D=\frac1d\sum_j \sup_x|F^{\mathrm{ref}}_j(x)-F^{\mathrm{win}}_j(x)|$
+\citep{massey1951}, exceeds the 95th percentile of its within-initial-window
+values); \emph{periodic} (the same number of retrains as the triggered policy,
+evenly spaced); and \emph{always} (after every batch). Each retrain uses the
+last five batches, with rows selected in one of three ways: \emph{oracle}
+(ground-truth normal rows, as in the original study), \emph{predicted-normal}
+(rows the current model did not flag) or \emph{all} rows. After every fit the
+threshold is the 99th percentile of the fit-window scores. Isolation Forest and
+Elliptic Envelope are tested. The scaler is fitted once on the initial window.
+The KS statistic is used instead of its $p$-value because, with thousands of
+rows per batch, $p$-values vanish for negligible differences, whereas $\bar D$
+is a bounded effect size.
+
+\subsection{Resource measurement}
+Each detector is fitted and timed in its own process inside a Docker container
+limited to one CPU and 1\,GB of RAM on an ARM64 (Apple M4) host, with BLAS
+threads limited to one. Reported are fit time, serialised size, load time,
+single-reading latency over 1{,}000 calls (median, 95th and 99th percentiles),
+batch throughput on 10{,}000 rows, and the child process's peak resident memory.
+The cost of recomputing the rolling features for one new reading from a
+30-row buffer is reported separately. This is a capped container, not an edge
+device: a physical device's slower cores, thermal limits and I/O are not
+represented, so latencies are lower bounds.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{SKAB under the pooled protocol}
+Table~\ref{tab:skab} and Fig.~\ref{fig:auroc} (left) report SKAB under the pooled
+protocol. Every detector is close to chance. The highest AUROC is Isolation
+Forest's $0.575$ ($95\%$ CI $0.504$--$0.645$; mean $0.575\pm0.018$ over ten seeds),
+and its CI barely excludes $0.5$; the CIs of the top five detectors overlap, and
+the paired difference between the two best (Isolation Forest and COPOD) is
+$0.012$ (CI $-0.066$ to $0.092$). The LSTM autoencoder is below chance
+(AUROC $0.442$, three seeds within $\pm0.001$). With a calibrated threshold the
+best MCC is $0.113$ (COPOD; CI $0.045$--$0.190$). The label-free rule gives MCC
+within $\pm0.05$ of zero for every detector: thresholds learned from normal
+data in this pooled setting do not separate faults.
+
+\begin{table}[t]
+\centering\small
+\caption{SKAB, pooled protocol (test: last 20\% of each of 34 runs, 7{,}503 rows,
+30.0\% anomalous). AUROC and MCC with 95\% block-bootstrap CIs over files. MCC
+columns use the label-free (LF) or validation-MCC (VM) threshold; event recall
+uses VM; 33 fault events.}
+\label{tab:skab}
+\begin{tabular}{lcccccc}
+\toprule
+Detector & AUROC [95\% CI] & AUPRC & MCC LF & MCC VM [95\% CI] & Event rec. VM \\
+\midrule
+Isolation Forest & 0.575 [0.504, 0.645] & 0.338 & 0.005 & 0.097 [$-$0.026, 0.233] & 0.94 \\
+COPOD & 0.558 [0.507, 0.621] & 0.320 & $-$0.042 & 0.113 [0.045, 0.190] & 1.00 \\
+ECOD & 0.535 [0.476, 0.601] & 0.315 & $-$0.016 & 0.066 [$-$0.010, 0.159] & 1.00 \\
+Elliptic Envelope & 0.520 [0.459, 0.581] & 0.305 & $-$0.050 & 0.051 [$-$0.079, 0.182] & 0.45 \\
+$z$-score & 0.513 [0.477, 0.554] & 0.307 & $-$0.051 & $-$0.032 [$-$0.102, 0.039] & 0.48 \\
+HBOS & 0.510 [0.420, 0.602] & 0.315 & 0.041 & 0.012 [$-$0.116, 0.152] & 0.85 \\
+One-Class SVM & 0.498 [0.463, 0.533] & 0.300 & $-$0.035 & $-$0.042 [$-$0.106, 0.009] & 0.73 \\
+PCA-recon & 0.489 [0.455, 0.517] & 0.294 & $-$0.046 & $-$0.047 [$-$0.104, $-$0.005] & 0.76 \\
+LOF & 0.489 [0.450, 0.533] & 0.299 & 0.007 & $-$0.021 [$-$0.073, 0.032] & 0.82 \\
+LSTM-AE & 0.442 [0.392, 0.500] & 0.267 & $-$0.075 & $-$0.078 [$-$0.165, $-$0.007] & 0.27 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{auroc_ci.png}
+\caption{AUROC with 95\% block-bootstrap confidence intervals (blocks: test files
+on SKAB, one-hour blocks on SWaT). Dashed line: chance. On SKAB (pooled) no
+detector is clearly above chance; on SWaT (standard split) all ten are well above
+chance and statistically indistinguishable from one another.}
+\label{fig:auroc}
+\end{figure}
+
+\subsection{SWaT under the standard protocol}
+Table~\ref{tab:swat} and Fig.~\ref{fig:auroc} (right) report SWaT. All ten
+detectors rank attack rows well (AUROC $0.825$--$0.858$) and their CIs overlap
+almost completely; the difference between the top two (ECOD and One-Class SVM) is
+$0.005$ (CI $-0.033$ to $0.044$). Isolation Forest's AUROC over ten seeds is
+$0.824\pm0.008$. The LSTM autoencoder ranks attacks as well as the classical
+detectors (AUROC $0.852$, AUPRC $0.763$, the highest AUPRC).
+
+The detectors separate once a threshold is applied. With the label-free rule,
+which targets 1\% false alarms on held-out normal-week data, the $z$-score
+baseline reaches MCC $0.716$ (CI $0.589$--$0.819$), One-Class SVM $0.660$ and
+Isolation Forest $0.637$, with false-alarm rates of 1.4--3.8\% on the
+attack period's normal rows and alarms in 63--86\% of the 35 attack segments.
+LOF, PCA reconstruction and the LSTM autoencoder instead raise alarms on
+68--73\% of the attack period's \emph{normal} rows, although their threshold
+gave exactly 1\% on held-out normal-week data: their scores shift between the
+normal week and the attack week independently of the attacks, so their
+thresholds do not transfer. Elliptic Envelope shows the opposite failure, with
+very few alarms (MCC $0.008$). When a labelled third of the attack period is
+used to calibrate thresholds, MCC on the remaining two thirds rises for most
+detectors (One-Class SVM $0.828$, $z$-score $0.827$, COPOD $0.802$), but not for
+the LSTM autoencoder ($0.266$), LOF ($0.246$) or PCA reconstruction ($0.143$).
+
+\begin{table}[t]
+\centering\small
+\caption{SWaT, standard protocol (test: full attack period, 449{,}919 rows,
+12.1\% attacks, 35 attack segments). AUROC and MCC with 95\% block-bootstrap CIs
+(one-hour blocks). LF: label-free threshold (99th percentile of held-out
+normal-week scores); FAR: false-alarm rate on the attack period's normal rows;
+VM: validation-MCC threshold calibrated on the first third, scored on the last
+two thirds.}
+\label{tab:swat}
+\begin{tabular}{lcccccc}
+\toprule
+Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & MCC VM \\
+\midrule
+ECOD & 0.858 [0.779, 0.925] & 0.703 & 0.310 [0.196, 0.395] & 0.001 & 0.20 & 0.688 \\
+One-Class SVM & 0.853 [0.772, 0.916] & 0.752 & 0.660 [0.506, 0.776] & 0.038 & 0.86 & 0.828 \\
+COPOD & 0.852 [0.772, 0.920] & 0.728 & 0.584 [0.438, 0.683] & 0.001 & 0.17 & 0.802 \\
+LSTM-AE & 0.852 [0.755, 0.917] & 0.763 & 0.134 [0.059, 0.209] & 0.726 & 0.89 & 0.266 \\
+LOF & 0.852 [0.759, 0.916] & 0.744 & 0.183 [0.129, 0.250] & 0.683 & 1.00 & 0.246 \\
+$z$-score & 0.847 [0.769, 0.907] & 0.738 & 0.716 [0.589, 0.819] & 0.014 & 0.86 & 0.827 \\
+PCA-recon & 0.845 [0.756, 0.910] & 0.747 & 0.144 [0.073, 0.214] & 0.704 & 0.91 & 0.143 \\
+Isolation Forest & 0.838 [0.747, 0.912] & 0.720 & 0.637 [0.480, 0.755] & 0.034 & 0.63 & 0.738 \\
+Elliptic Envelope & 0.829 [0.737, 0.899] & 0.528 & 0.008 [$-$0.029, 0.056] & 0.014 & 0.74 & 0.643 \\
+HBOS & 0.825 [0.734, 0.903] & 0.554 & 0.500 [0.333, 0.629] & 0.088 & 0.63 & 0.443 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{How much protocol choices change the conclusions}
+\label{sec:protocol}
+
+\paragraph{Split definition (SWaT).} Scoring the same detectors with the same
+code on the re-upload's layout (the split of the original study: train on the
+normal rows between attacks, test on 31.5\% attacks) gives AUROC $0.840$--$0.934$
+and reorders the detectors: HBOS ranks first there and last under the standard
+split (Fig.~\ref{fig:protocol}, left). Under that layout the training data come
+from the same five days as the test attacks, so the normal-week to attack-week
+shift described above never appears in evaluation.
+
+\paragraph{Threshold rule (SWaT).} The original study tuned one contamination
+value on Isolation Forest and applied it to every model. On the same layout,
+per-model validation-MCC thresholds (with the revised detector settings of
+Section~\ref{sec:method}) raise the $z$-score's MCC from $0.180$ to
+$0.844$, PCA reconstruction's from $0.002$ to $0.834$ and LOF's from $0.105$ to
+$0.830$, while Elliptic Envelope, the original winner at $0.766$, moves only to
+$0.810$. The original ranking therefore reflected mainly the shared threshold,
+not the detectors.
+
+\paragraph{Training protocol (SKAB).} Under the SKAB reference protocol (one
+model per run, trained on its first 400 rows), the same detectors are far
+better than under pooled training: mean per-run AUROC reaches $0.794$
+(PCA reconstruction), $0.785$ (LOF) and $0.771$ (One-Class SVM), against
+$0.489$--$0.575$ pooled (Fig.~\ref{fig:protocol}, right; Table~\ref{tab:skabbench}).
+The ranking inverts: Isolation Forest, the best pooled detector, is among the
+weakest per run, and ECOD and COPOD fall to chance because, with only 400 training
+rows and a 99th-percentile threshold, they almost never alarm. Of the first 400
+rows, 2.1\% are labelled anomalous, so this protocol trains on slightly
+contaminated data, as in the reference implementation. Absolute numbers are not
+directly comparable with the SKAB leaderboard (best F1 $0.78$ at a 13.6\% false-alarm
+rate for a convolutional autoencoder), because features, thresholds and post-processing
+differ; detectors here reach similar F1 ($0.72$--$0.73$) only at much higher
+false-alarm rates (47--71\%), while Elliptic Envelope offers a more balanced
+operating point (F1 $0.644$, false alarms 20.2\%, MCC $0.361$).
+
+\paragraph{Threshold rule (SKAB).} On the pooled SKAB test set, Isolation
+Forest's MCC is $0.005$ with the label-free rule, $0.097$ with validation-MCC and
+$0.118$ with validation-F1; the F1 rule buys its MCC with recall $0.71$ at
+higher false-alarm rates. Differences of this size are within the CIs.
+
+\paragraph{Feature choices.} Removing the elapsed-time feature and computing
+features before dropping fault rows changed SKAB AUROC by at most $0.02$
+(Isolation Forest $0.591$ original pipeline, $0.555$ with elapsed time, $0.575$
+revised), well within the CIs; these corrections matter for validity, not for
+the numbers.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{protocol_sensitivity.png}
+\caption{Same detectors, same code, different protocol. Left: SWaT AUROC under the
+re-upload layout used in the original study versus the standard split. Right: SKAB
+AUROC with one model trained on all runs (pooled) versus one model per run trained
+on its first 400 rows (SKAB reference protocol; mean over runs).}
+\label{fig:protocol}
+\end{figure}
+
+\begin{table}[t]
+\centering\small
+\caption{SKAB reference protocol (per run: first 400 rows train, remainder test;
+label-free threshold from each run's training scores). FAR and MAR as defined by the
+SKAB benchmark (false-alarm and missed-alarm rates).}
+\label{tab:skabbench}
+\begin{tabular}{lccccc}
+\toprule
+Detector & F1 & FAR & MAR & MCC & Mean run AUROC \\
+\midrule
+Elliptic Envelope & 0.644 & 0.202 & 0.445 & 0.361 & 0.749 \\
+$z$-score & 0.722 & 0.468 & 0.213 & 0.331 & 0.766 \\
+LOF & 0.723 & 0.556 & 0.168 & 0.302 & 0.785 \\
+One-Class SVM & 0.732 & 0.712 & 0.077 & 0.277 & 0.771 \\
+PCA-recon & 0.731 & 0.707 & 0.081 & 0.276 & 0.794 \\
+HBOS & 0.603 & 0.306 & 0.457 & 0.239 & 0.674 \\
+Isolation Forest & 0.470 & 0.201 & 0.641 & 0.174 & 0.664 \\
+COPOD & 0.044 & 0.024 & 0.977 & $-$0.004 & 0.548 \\
+ECOD & 0.027 & 0.022 & 0.986 & $-$0.029 & 0.493 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Drift and Retraining}
+\label{sec:drift}
+
+\paragraph{Does normal operation drift?} Streaming SWaT's genuine normal week
+through a static Isolation Forest fitted on its first 14 hours, the share of
+normal readings that raise an alarm, after a transient spike in the first day,
+stays near the design rate of 1\% for about two days and then jumps, at roughly
+hour 48, to $40$--$94\%$ for the rest of the week (mean $12\%$ over the first 24
+streamed hours, $76\%$ over the last 24; Fig.~\ref{fig:drift}, left). The change
+is a step, consistent with a change in operating regime, rather than a slow trend. The
+Elliptic Envelope fitted on the same window does not show this: its false-alarm
+rate over the normal week is $0.9\%$. Drift is therefore real, but whether it
+matters depends on the detector. Isolation Forest operates on all 120 raw-scale
+features, whereas the Elliptic Envelope operates on ten whitened principal
+components; a plausible, untested explanation is that slow level changes in
+individual sensors fall mostly outside those components.
+
+\paragraph{Retraining policies.} Table~\ref{tab:drift} and Fig.~\ref{fig:drift}
+(right) compare policies over the attack period after the normal week. With
+retraining data selected by ground-truth labels (as in the original study),
+retraining helps Isolation Forest substantially: MCC rises from $0.167$
+(static, which flags 73\% of normal rows) to $0.488$ when triggered by the KS
+statistic (74 retrains), $0.456$ when the same number of retrains is evenly
+spaced, and $0.537$ when retraining after every batch. Drift triggering is thus
+about as good as a schedule with the same budget; it is not clearly better. For
+the Elliptic Envelope, no policy improves on the static model (MCC $0.723$ static,
+$0.709$--$0.734$ with retraining).
+
+\paragraph{Without labels, retraining can fail.} A deployed detector does not
+know which recent rows are normal. When Isolation Forest retrains on the rows it
+did \emph{not} flag, it enters a self-reinforcing failure: once it flags most rows,
+too few remain to retrain on, and it ends up flagging everything (MCC $0.000$ to
+$0.025$, false-alarm rate 99.5--100\%). Retraining on all recent rows avoids that
+collapse but absorbs the attacks into the model of normal behaviour, roughly
+halving recall ($0.30$--$0.51$) and giving MCC $0.188$--$0.303$. The Elliptic
+Envelope tolerates predicted-normal selection (MCC $0.683$--$0.734$) but loses
+more than half its skill when retraining on all rows ($0.332$--$0.418$). The
+benefit of adaptation reported in the original study therefore depended on
+labels that a deployment would not have.
+
+\paragraph{Cost.} On the host, an Isolation Forest retrain on five hours of data
+took about $0.08$--$0.1$\,s and an Elliptic Envelope retrain about $1.1$\,s. The KS
+drift check (120 features against a reference of up to 50{,}000 rows) took
+$0.22$--$0.46$\,s per hourly batch in the label-selected and all-rows runs, and up
+to $2$\,s when the reference grew large. For Isolation Forest, checking for drift
+therefore costs more than simply retraining every hour, and every-hour
+retraining gave the best result. A drift trigger pays off only when retraining
+is expensive relative to the check, as for the Elliptic Envelope.
+
+\begin{table}[t]
+\centering\small
+\caption{Retraining policies on SWaT (stream: rest of the normal week, 119 hourly
+batches, then the attack period, 125 batches). Normal FAR: false-alarm rate over the
+streamed normal week. Attack-period metrics are point-wise; event recall over 35
+segments. Retrain CPU: total seconds spent refitting (host).}
+\label{tab:drift}
+\begin{tabular}{llrcccccr}
+\toprule
+Detector & Policy & Retrains & Normal FAR & MCC & Recall & FAR & Event rec. & CPU s \\
+\midrule
+\multicolumn{9}{l}{\emph{Isolation Forest}}\\
+ & static & 0 & 0.431 & 0.167 & 0.949 & 0.730 & 1.00 & 0.0 \\
+ & KS, oracle & 74 & 0.119 & 0.488 & 0.695 & 0.115 & 0.83 & 7.0 \\
+ & periodic, oracle & 80 & 0.187 & 0.456 & 0.716 & 0.144 & 0.83 & 6.4 \\
+ & always, oracle & 239 & 0.105 & 0.537 & 0.687 & 0.086 & 0.80 & 19.6 \\
+ & KS, pred.-normal & 52 & 0.565 & 0.025 & 1.000 & 0.995 & 1.00 & 4.1 \\
+ & periodic, pred.-normal & 10 & 0.877 & 0.000 & 1.000 & 1.000 & 1.00 & 0.5 \\
+ & always, pred.-normal & 52 & 0.721 & 0.001 & 1.000 & 1.000 & 1.00 & 3.3 \\
+ & KS, all rows & 79 & 0.119 & 0.188 & 0.305 & 0.110 & 0.86 & 7.2 \\
+ & periodic, all rows & 81 & 0.187 & 0.303 & 0.505 & 0.143 & 0.86 & 7.8 \\
+ & always, all rows & 244 & 0.105 & 0.226 & 0.298 & 0.083 & 0.83 & 22.7 \\
+\multicolumn{9}{l}{\emph{Elliptic Envelope}}\\
+ & static & 0 & 0.009 & 0.723 & 0.634 & 0.011 & 0.80 & 0.0 \\
+ & KS, oracle & 74 & 0.011 & 0.709 & 0.598 & 0.008 & 0.74 & 79.6 \\
+ & periodic, oracle & 80 & 0.021 & 0.717 & 0.615 & 0.010 & 0.74 & 95.3 \\
+ & always, oracle & 239 & 0.011 & 0.711 & 0.607 & 0.010 & 0.74 & 283.0 \\
+ & KS, pred.-normal & 73 & 0.014 & 0.725 & 0.643 & 0.012 & 0.69 & 85.9 \\
+ & periodic, pred.-normal & 80 & 0.025 & 0.734 & 0.667 & 0.014 & 0.69 & 84.1 \\
+ & always, pred.-normal & 238 & 0.016 & 0.683 & 0.653 & 0.024 & 0.77 & 234.7 \\
+ & KS, all rows & 79 & 0.011 & 0.332 & 0.180 & 0.008 & 0.77 & 82.4 \\
+ & periodic, all rows & 81 & 0.021 & 0.418 & 0.260 & 0.010 & 0.80 & 90.0 \\
+ & always, all rows & 244 & 0.011 & 0.335 & 0.189 & 0.010 & 0.80 & 279.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{drift_policies.png}
+\caption{Left: false-alarm rate of a static Isolation Forest over SWaT's genuine
+normal week (threshold set to flag 1\% of its training window). Middle and right: detection
+skill (MCC) over the attack period for each retraining policy, coloured by how
+retraining data are selected; grey is the static model. Selecting with ground-truth
+labels (blue) is what makes retraining help Isolation Forest; label-free selection
+(orange, green) does not. The static Elliptic Envelope is already as good as any
+adaptive variant.}
+\label{fig:drift}
+\end{figure}
+
+\paragraph{A note on the Elliptic Envelope's instability.} In this streaming
+setting the static Elliptic Envelope, fitted on 14 hours, reaches MCC $0.723$,
+yet in Table~\ref{tab:swat}, fitted on the full normal week with its threshold
+set on the week's last 15\%, its label-free MCC is $0.008$. The two runs differ
+only in the training window and threshold-calibration data. One consistent reading
+is that drift within the normal week inflates the end-of-week scores used for
+calibration, producing a threshold too high to fire. Either way, a detector
+whose performance swings this much with the calibration window is fragile in
+deployment, a property a single benchmark number hides.
+
+%%EDGE%%
+
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{Ranking quality is not the bottleneck; thresholds and protocols are.}
+On SWaT's standard split, ten detectors that span statistical, distance,
+density, tree, copula and recurrent families are statistically indistinguishable
+in AUROC. This agrees with large benchmark studies that find no consistent winner
+and strong simple baselines \citep{audibert2022,sarfraz2024}. What separates
+them in use is whether a threshold set on normal data still works later: the
+$z$-score, One-Class SVM and Isolation Forest kept false alarms near their design
+rate on the attack week's normal data, while LOF, PCA reconstruction and the LSTM
+autoencoder did not. A detector comparison that reports only threshold-free
+ranking, or only thresholds tuned on test-period labels, hides exactly the property
+an operator cares about.
+
+\paragraph{Why the original conclusions changed.} Three protocol choices in the
+original study each favoured a particular answer. Training on the attack period's
+own normal rows removed the normal-week to attack-week shift from the evaluation.
+A contamination value tuned on Isolation Forest and shared by all detectors made
+detectors with differently scaled scores look poor. Retraining on
+ground-truth-normal rows made adaptation look free of risk. None of these
+choices is unusual, and each was documented in the code. Their effect became
+visible only when the same detectors were rerun under alternative protocols.
+Studies that compare detectors should therefore report at least one alternative
+threshold rule and state where their training and test data come from in time.
+
+\paragraph{What adaptation needs.} Normal operation does drift, and some
+detectors are much more sensitive to it than others. Where retraining helps, it
+helps only if the retraining data are clean; with label-free selection Isolation
+Forest either collapsed into flagging everything or learned the attacks as
+normal. In practice this argues for one of three things: retraining data vetted
+by an operator; a slow-changing detector (here, the Elliptic Envelope on whitened
+components), whose static form was as good as any adaptive variant; or adaptation
+of the threshold rather than the model. For cheap models such as Isolation Forest, a
+drift test can cost more than the retrain it is meant to save.
+
+\paragraph{Cost.} Single-reading latencies span three orders of magnitude, from
+microseconds ($z$-score) to over 100\,ms (ECOD and COPOD in PyOD, which store and
+rescore against their training data), and model sizes from 1\,KB to 39\,MB. The
+batch-amortised figures used in the original study (around $0.002$\,ms per row for
+Isolation Forest) understate the real single-reading cost (about $2.3$--$2.8$\,ms)
+by three orders of magnitude, because per-call overhead dominates. For a monitor that
+scores one reading per second, all detectors except possibly ECOD and COPOD fit
+comfortably; the deciding constraints are memory and threshold stability, not
+speed.
+
+\section{Threats to Validity and Limitations}
+\label{sec:limits}
+
+\begin{itemize}
+\item \textbf{Dataset copy.} SWaT results come from a public re-upload
+reconstructed to the standard split; seven channels are blank in its normal run, so 24
+of the 25 continuous sensors were used and actuators were excluded. The
+reconstruction reproduces the published row counts, but the results must be
+confirmed on the official iTrust release before they are cited as SWaT results.
+\item \textbf{Two water systems.} Both datasets are water processes with
+physically induced faults or scripted attacks; rotating machinery, electrical
+faults and progressive wear are not covered. HAI \citep{shin2020} and WADI
+\citep{ahmed2017} are natural next datasets.
+\item \textbf{Detector configurations.} Hyperparameters other than thresholds were
+fixed at common defaults; One-Class SVM and LOF were trained on a 20{,}000-row
+subsample on SWaT; the LSTM autoencoder is small and was run with one seed on
+SWaT. Larger or tuned deep models were not tested.
+\item \textbf{Metrics.} Event recall and median delay are reported, but
+range-aware metrics such as VUS-PR \citep{paparrizos2022} were not computed.
+Bootstrap blocks (files, hours) reduce but do not remove dependence between blocks.
+\item \textbf{Drift design.} One stream, one window length (five hours), one KS
+threshold rule and two detectors were studied; ADWIN-style detectors and threshold-only
+adaptation were not compared. Policies are compared without confidence intervals
+because the stream is a single realisation.
+\item \textbf{Resource measurements.} A Docker container capped at one CPU and
+1\,GB on an Apple M4 host is not a physical edge device: slower cores, thermal
+limits and real I/O are absent, so latencies are lower bounds. Peak memory is per
+process and includes loading the dataset. Energy was not measured.
+\item \textbf{SKAB protocols.} The SKAB reference protocol trains on rows of which
+2.1\% are labelled anomalous, and its label-free threshold is set from each
+run's own training scores; results are not directly comparable with the SKAB
+leaderboard, whose features, thresholds and post-processing differ.
+\item \textbf{Search scope.} The literature search used a general web search and
+publisher pages rather than database-level systematic queries; statements that a
+comparison was not found are limited to that search.
+\end{itemize}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Re-examining a six-detector comparison on SKAB and SWaT under documented,
+standard protocols answered the four research questions as follows.
+(RQ1) On SWaT's standard split, ten lightweight and deep detectors rank attacks
+equally well (AUROC $0.83$--$0.86$, overlapping intervals); on SKAB with pooled
+training, none is reliably better than chance. (RQ2) Protocol choices change the
+conclusions more than detector choice does: the SWaT split definition reorders the
+detectors, a shared contamination value had made the $z$-score look useless (MCC
+$0.18$ against $0.84$ with its own threshold), and SKAB's per-run protocol inverts the
+pooled ranking. Under thresholds set only from normal data, the simple $z$-score,
+One-Class SVM and Isolation Forest were the most dependable on SWaT (MCC
+$0.64$--$0.72$). (RQ3) Normal operation drifts enough to break a static Isolation
+Forest; retraining restores it only when the retraining data are known to be
+normal, drift-triggered retraining was no better than a schedule with the same
+budget, and label-free retraining failed. (RQ4) Single-reading costs range from
+microseconds to over 100\,ms and model sizes from kilobytes to tens of megabytes
+under a one-CPU, 1\,GB cap.
+
+The original version of this study reported dataset-specific winners, a large
+benefit from drift adaptation, and sub-millisecond inference; none of these
+survived re-examination. What did survive is a clearer and more useful message for
+practitioners: choose the detector for its threshold stability and retraining
+needs rather than its benchmark rank, and report the protocol in enough detail
+that a reader can tell which of these the numbers measure. Next steps are
+confirmation on the official SWaT release, a third dataset from a different
+machine class, threshold-only adaptation, and measurement on physical edge
+hardware.
+
+\section*{Data and Code Availability}
+Code, configuration and all result files are available in the project repository
+(\texttt{experiments/revision/}, \texttt{results/revised/}). SKAB is public
+\citep{skab}. SWaT must be requested from iTrust, SUTD; the re-upload used and the
+reconstruction of the standard split are documented in the code. Software used:
+scikit-learn \citep{pedregosa2011}, PyOD \citep{zhao2019} and PyTorch.
+
+\section*{Disclosure of Interests}
+The authors have no competing interests to declare.
+
+\begin{thebibliography}{99}
+\small
+
+\bibitem[Ahmad et~al.(2017)]{ahmad2017} Ahmad, S., Lavin, A., Purdy, S., \& Agha, Z. (2017). Unsupervised real-time anomaly detection for streaming data. \emph{Neurocomputing}, 262, 134--147. doi:10.1016/j.neucom.2017.04.070
+
+\bibitem[Ahmed et~al.(2017)]{ahmed2017} Ahmed, C.~M., Palleti, V.~R., \& Mathur, A.~P. (2017). WADI: A water distribution testbed for research in the design of secure cyber physical systems. In \emph{Proc.\ 3rd Int.\ Workshop on Cyber-Physical Systems for Smart Water Networks (CySWater)} (pp.\ 25--28). doi:10.1145/3055366.3055375
+
+\bibitem[Audibert et~al.(2020)]{audibert2020} Audibert, J., Michiardi, P., Guyard, F., Marti, S., \& Zuluaga, M.~A. (2020). USAD: Unsupervised anomaly detection on multivariate time series. In \emph{Proc.\ 26th ACM SIGKDD Int.\ Conf.\ on Knowledge Discovery \& Data Mining}. doi:10.1145/3394486.3403392
+
+\bibitem[Audibert et~al.(2022)]{audibert2022} Audibert, J., Michiardi, P., Guyard, F., Marti, S., \& Zuluaga, M.~A. (2022). Do deep neural networks contribute to multivariate time series anomaly detection? \emph{Pattern Recognition}, 132, 108945. doi:10.1016/j.patcog.2022.108945
+
+\bibitem[Banbury et~al.(2021)]{banbury2021} Banbury, C., et~al. (2021). MLPerf Tiny benchmark. In \emph{Proc.\ NeurIPS Datasets and Benchmarks Track}. arXiv:2106.07597
+
+\bibitem[Bifet \& Gavald\`a(2007)]{bifet2007} Bifet, A., \& Gavald\`a, R. (2007). Learning from time-changing data with adaptive windowing. In \emph{Proc.\ SIAM Int.\ Conf.\ on Data Mining} (pp.\ 443--448). doi:10.1137/1.9781611972771.42
+
+\bibitem[Breunig et~al.(2000)]{breunig2000} Breunig, M.~M., Kriegel, H.-P., Ng, R.~T., \& Sander, J. (2000). LOF: Identifying density-based local outliers. In \emph{Proc.\ ACM SIGMOD Int.\ Conf.\ on Management of Data} (pp.\ 93--104). doi:10.1145/342009.335388
+
+\bibitem[Chandola et~al.(2009)]{chandola2009} Chandola, V., Banerjee, A., \& Kumar, V. (2009). Anomaly detection: A survey. \emph{ACM Computing Surveys}, 41(3), 1--58. doi:10.1145/1541880.1541882
+
+\bibitem[Chicco \& Jurman(2020)]{chicco2020} Chicco, D., \& Jurman, G. (2020). The advantages of the Matthews correlation coefficient (MCC) over F1 score and accuracy in binary classification evaluation. \emph{BMC Genomics}, 21, 6. doi:10.1186/s12864-019-6413-7
+
+\bibitem[Deng \& Hooi(2021)]{deng2021} Deng, A., \& Hooi, B. (2021). Graph neural network-based anomaly detection in multivariate time series. In \emph{Proc.\ AAAI Conf.\ on Artificial Intelligence}, 35(5), 4027--4035. doi:10.1609/aaai.v35i5.16523
+
+\bibitem[Gama et~al.(2014)]{gama2014} Gama, J., \v{Z}liobait\.{e}, I., Bifet, A., Pechenizkiy, M., \& Bouchachia, A. (2014). A survey on concept drift adaptation. \emph{ACM Computing Surveys}, 46(4), 1--37. doi:10.1145/2523813
+
+\bibitem[Garg et~al.(2021)]{garg2021} Garg, A., Zhang, W., Samaran, J., Savitha, R., \& Foo, C.-S. (2021). An evaluation of anomaly detection and diagnosis in multivariate time series. \emph{IEEE Transactions on Neural Networks and Learning Systems}. doi:10.1109/TNNLS.2021.3105827
+
+\bibitem[Goh et~al.(2016)]{goh2016} Goh, J., Adepu, S., Junejo, K.~N., \& Mathur, A. (2016). A dataset to support research in the design of secure water treatment systems. In \emph{Proc.\ 11th Int.\ Conf.\ on Critical Information Infrastructures Security (CRITIS)} (pp.\ 88--99). doi:10.1007/978-3-319-71368-7\_8
+
+\bibitem[Goldstein \& Uchida(2016)]{goldstein2016} Goldstein, M., \& Uchida, S. (2016). A comparative evaluation of unsupervised anomaly detection algorithms for multivariate data. \emph{PLoS ONE}, 11(4), e0152173. doi:10.1371/journal.pone.0152173
+
+\bibitem[Han et~al.(2022)]{han2022} Han, S., Hu, X., Huang, H., Jiang, M., \& Zhao, Y. (2022). ADBench: Anomaly detection benchmark. In \emph{Advances in Neural Information Processing Systems 35 (Datasets and Benchmarks Track)}. arXiv:2206.09426
+
+\bibitem[Hundman et~al.(2018)]{hundman2018} Hundman, K., Constantinou, V., Laporte, C., Colwell, I., \& Soderstrom, T. (2018). Detecting spacecraft anomalies using LSTMs and nonparametric dynamic thresholding. In \emph{Proc.\ 24th ACM SIGKDD Int.\ Conf.\ on Knowledge Discovery \& Data Mining}. doi:10.1145/3219819.3219845
+
+\bibitem[Katser \& Kozitsin(2020)]{skab} Katser, I.~D., \& Kozitsin, V.~O. (2020). \emph{Skoltech Anomaly Benchmark (SKAB)} [Data set]. Kaggle. doi:10.34740/KAGGLE/DSV/1693952
+
+\bibitem[Kim et~al.(2022)]{kim2022} Kim, S., Choi, K., Choi, H.-S., Lee, B., \& Yoon, S. (2022). Towards a rigorous evaluation of time-series anomaly detection. In \emph{Proc.\ AAAI Conf.\ on Artificial Intelligence}, 36(7), 7194--7201. doi:10.1609/aaai.v36i7.20680
+
+\bibitem[Li et~al.(2019)]{li2019madgan} Li, D., Chen, D., Jin, B., Shi, L., Goh, J., \& Ng, S.-K. (2019). MAD-GAN: Multivariate anomaly detection for time series data with generative adversarial networks. In \emph{Proc.\ Int.\ Conf.\ on Artificial Neural Networks (ICANN)}. arXiv:1809.04758
+
+\bibitem[Li et~al.(2023)]{li2022ecod} Li, Z., Zhao, Y., Hu, X., Botta, N., Ionescu, C., \& Chen, G.~H. (2023). ECOD: Unsupervised outlier detection using empirical cumulative distribution functions. \emph{IEEE Transactions on Knowledge and Data Engineering}, 35(12), 12181--12193. doi:10.1109/TKDE.2022.3159580
+
+\bibitem[Liu \& Paparrizos(2024)]{liu2024} Liu, Q., \& Paparrizos, J. (2024). The elephant in the room: Towards a reliable time-series anomaly detection benchmark. In \emph{Advances in Neural Information Processing Systems 37 (Datasets and Benchmarks Track)} (pp.\ 108231--108261).
+
+\bibitem[Liu et~al.(2008)]{liu2008} Liu, F.~T., Ting, K.~M., \& Zhou, Z.-H. (2008). Isolation forest. In \emph{Proc.\ 8th IEEE Int.\ Conf.\ on Data Mining} (pp.\ 413--422). doi:10.1109/ICDM.2008.17
+
+\bibitem[Lu et~al.(2019)]{lu2018} Lu, J., Liu, A., Dong, F., Gu, F., Gama, J., \& Zhang, G. (2019). Learning under concept drift: A review. \emph{IEEE Transactions on Knowledge and Data Engineering}, 31(12), 2346--2363. doi:10.1109/TKDE.2018.2876857
+
+\bibitem[Malhotra et~al.(2016)]{malhotra2016} Malhotra, P., Ramakrishnan, A., Anand, G., Vig, L., Agarwal, P., \& Shroff, G. (2016). LSTM-based encoder-decoder for multi-sensor anomaly detection. \emph{ICML Anomaly Detection Workshop}. arXiv:1607.00148
+
+\bibitem[Massey(1951)]{massey1951} Massey, F.~J. (1951). The Kolmogorov-Smirnov test for goodness of fit. \emph{Journal of the American Statistical Association}, 46(253), 68--78. doi:10.1080/01621459.1951.10500769
+
+\bibitem[Mathur \& Tippenhauer(2016)]{mathur2016} Mathur, A.~P., \& Tippenhauer, N.~O. (2016). SWaT: A water treatment testbed for research and training on ICS security. In \emph{Proc.\ Int.\ Workshop on Cyber-physical Systems for Smart Water Networks (CySWater)} (pp.\ 31--36). doi:10.1109/CySWater.2016.7469060
+
+\bibitem[Paparrizos et~al.(2022)]{paparrizos2022} Paparrizos, J., Boniol, P., Palpanas, T., Tsay, R.~S., Elmore, A., \& Franklin, M.~J. (2022). Volume under the surface: A new accuracy evaluation measure for time-series anomaly detection. \emph{Proceedings of the VLDB Endowment}, 15(11), 2774--2787. doi:10.14778/3551793.3551830
+
+\bibitem[Pedregosa et~al.(2011)]{pedregosa2011} Pedregosa, F., et~al. (2011). Scikit-learn: Machine learning in Python. \emph{Journal of Machine Learning Research}, 12, 2825--2830.
+
+\bibitem[Rabanser et~al.(2019)]{rabanser2019} Rabanser, S., G\"unnemann, S., \& Lipton, Z. (2019). Failing loudly: An empirical study of methods for detecting dataset shift. In \emph{Advances in Neural Information Processing Systems 32}. arXiv:1810.11953
+
+\bibitem[Rousseeuw \& Van~Driessen(1999)]{rousseeuw1999} Rousseeuw, P.~J., \& Van~Driessen, K. (1999). A fast algorithm for the minimum covariance determinant estimator. \emph{Technometrics}, 41(3), 212--223. doi:10.1080/00401706.1999.10485670
+
+\bibitem[Sarfraz et~al.(2024)]{sarfraz2024} Sarfraz, M.~S., Chen, M.-Y., Layer, L., Peng, K., \& Koulakis, M. (2024). Position: Quo vadis, unsupervised time series anomaly detection? In \emph{Proc.\ 41st Int.\ Conf.\ on Machine Learning}, PMLR 235, 43461--43476.
+
+\bibitem[Schmidl et~al.(2022)]{schmidl2022} Schmidl, S., Wenig, P., \& Papenbrock, T. (2022). Anomaly detection in time series: A comprehensive evaluation. \emph{Proceedings of the VLDB Endowment}, 15(9), 1779--1797. doi:10.14778/3538598.3538602
+
+\bibitem[Sch\"olkopf et~al.(2001)]{scholkopf2001} Sch\"olkopf, B., Platt, J.~C., Shawe-Taylor, J., Smola, A.~J., \& Williamson, R.~C. (2001). Estimating the support of a high-dimensional distribution. \emph{Neural Computation}, 13(7), 1443--1471. doi:10.1162/089976601750264965
+
+\bibitem[Shin et~al.(2020)]{shin2020} Shin, H.-K., Lee, W., Yun, J.-H., \& Kim, H. (2020). HAI 1.0: HIL-based augmented ICS security dataset. In \emph{Proc.\ 13th USENIX Workshop on Cyber Security Experimentation and Test (CSET)}.
+
+\bibitem[Shyu et~al.(2003)]{shyu2003} Shyu, M.-L., Chen, S.-C., Sarinnapakorn, K., \& Chang, L. (2003). A novel anomaly detection scheme based on principal component classifier. In \emph{Proc.\ IEEE ICDM Workshop on Foundations and New Directions of Data Mining} (pp.\ 172--179).
+
+\bibitem[Tatbul et~al.(2018)]{tatbul2018} Tatbul, N., Lee, T.~J., Zdonik, S., Alam, M., \& Gottschlich, J. (2018). Precision and recall for time series. In \emph{Advances in Neural Information Processing Systems 31}. arXiv:1803.03639
+
+\bibitem[Tuli et~al.(2022)]{tuli2022} Tuli, S., Casale, G., \& Jennings, N.~R. (2022). TranAD: Deep transformer networks for anomaly detection in multivariate time series data. \emph{Proceedings of the VLDB Endowment}, 15(6), 1201--1214. doi:10.14778/3514061.3514067
+
+\bibitem[Wu \& Keogh(2023)]{wu2023} Wu, R., \& Keogh, E. (2023). Current time series anomaly detection benchmarks are flawed and are creating the illusion of progress. \emph{IEEE Transactions on Knowledge and Data Engineering}, 35(3), 2421--2429. doi:10.1109/TKDE.2021.3112126
+
+\bibitem[Zhao et~al.(2019)]{zhao2019} Zhao, Y., Nasrullah, Z., \& Li, Z. (2019). PyOD: A Python toolbox for scalable outlier detection. \emph{Journal of Machine Learning Research}, 20(96), 1--7.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,13 @@
+# Revised edge image (revision E5): adds pyod/numba and CPU-only torch so every
+# detector, including the LSTM-AE, is measured under the same caps.
+FROM python:3.12-slim-bookworm
+RUN pip install --no-cache-dir numpy==2.4.6
+RUN pip install --no-cache-dir scipy==1.17.1
+RUN pip install --no-cache-dir pandas==3.0.3
+RUN pip install --no-cache-dir joblib==1.5.3 scikit-learn==1.9.0 threadpoolctl
+RUN pip install --no-cache-dir numba pyod==3.6.7
+RUN pip install --no-cache-dir torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir -U typing_extensions
+WORKDIR /app
+ENV PYTHONPATH=/app
+CMD ["python", "-W", "ignore", "-m", "experiments.revision.edge_revised"]

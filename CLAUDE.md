@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 SensorGuard-Research is a complete, working research pipeline (data → features
 → 6 models → evaluation → figures → persistence) for the paper "Comparative
 Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor
-Anomaly Detection in Industrial Systems." Only the paper itself (Phase D in
-`ROADMAP.md`) remains. Layout:
+Anomaly Detection in Industrial Systems." The ICACS-2026 version was rejected; a full
+revision lives in `revision/`, `experiments/revision/`, `results/revised/` and
+`paper/paper2_revised.tex`. Start from `CHECKPOINT.md`. Layout:
 
 - `README.md` — project overview, dataset info, and how to run things.
 - `WALKTHROUGH.md` — the plain-English guide to everything built and why;

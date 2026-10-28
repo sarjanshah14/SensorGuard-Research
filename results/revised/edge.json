@@ -1,0 +1,124 @@
+{
+  "env": {
+    "machine": "aarch64",
+    "python": "3.12.16",
+    "cgroup_cpus": 1.0,
+    "cgroup_mem_MB": 1024.0,
+    "note": "Docker container with CPU/RAM caps on an Apple-M4 host; not a physical edge device"
+  },
+  "feature_update_per_reading": {
+    "latency_ms_p50": 3.465,
+    "latency_ms_p95": 3.82
+  },
+  "models": {
+    "SKAB|Z-score": {
+      "fit_s": 0.002,
+      "size_KB": 1.0,
+      "load_ms": 0.15,
+      "latency_ms_p50": 0.002,
+      "latency_ms_p95": 0.002,
+      "latency_ms_p99": 0.002,
+      "batch_rows_per_s": 12117092,
+      "peak_rss_MB": 406.0
+    },
+    "SKAB|PCA-recon": {
+      "fit_s": 0.003,
+      "size_KB": 7.7,
+      "load_ms": 0.21,
+      "latency_ms_p50": 0.058,
+      "latency_ms_p95": 0.063,
+      "latency_ms_p99": 0.069,
+      "batch_rows_per_s": 4308560,
+      "peak_rss_MB": 398.2
+    },
+    "SKAB|EllipticEnvelope": {
+      "fit_s": 2.061,
+      "size_KB": 251.4,
+      "load_ms": 0.34,
+      "latency_ms_p50": 0.167,
+      "latency_ms_p95": 0.19,
+      "latency_ms_p99": 0.227,
+      "batch_rows_per_s": 8710067,
+      "peak_rss_MB": 398.2
+    },
+    "SKAB|IsolationForest": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SKAB|One-Class SVM": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SKAB|LOF": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SKAB|ECOD": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SKAB|COPOD": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SKAB|HBOS": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|Z-score": {
+      "fit_s": 0.007,
+      "size_KB": 2.2,
+      "load_ms": 0.16,
+      "latency_ms_p50": 0.002,
+      "latency_ms_p95": 0.002,
+      "latency_ms_p99": 0.002,
+      "batch_rows_per_s": 7833663,
+      "peak_rss_MB": 533.4
+    },
+    "SWaT|PCA-recon": {
+      "fit_s": 0.02,
+      "size_KB": 51.9,
+      "load_ms": 0.25,
+      "latency_ms_p50": 0.064,
+      "latency_ms_p95": 0.069,
+      "latency_ms_p99": 0.074,
+      "batch_rows_per_s": 1138790,
+      "peak_rss_MB": 532.8
+    },
+    "SWaT|EllipticEnvelope": {
+      "fit_s": 4.562,
+      "size_KB": 503.1,
+      "load_ms": 0.37,
+      "latency_ms_p50": 0.167,
+      "latency_ms_p95": 0.201,
+      "latency_ms_p99": 0.226,
+      "batch_rows_per_s": 5495889,
+      "peak_rss_MB": 532.8
+    },
+    "SWaT|IsolationForest": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|One-Class SVM": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|LOF": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|ECOD": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|COPOD": {
+      "error": "child process failed (likely OOM)"
+    },
+    "SWaT|HBOS": {
+      "error": "child process failed (likely OOM)"
+    }
+  },
+  "lstm_ae": {
+    "8_features": {
+      "params": 52744,
+      "latency_ms_p50": 0.707,
+      "latency_ms_p95": 0.878
+    },
+    "24_features": {
+      "params": 57880,
+      "latency_ms_p50": 0.721,
+      "latency_ms_p95": 0.851
+    },
+    "peak_rss_MB": 352.7
+  }
+}

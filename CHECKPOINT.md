@@ -11,11 +11,13 @@ Current paper: `paper/paper1.tex` (Springer LLNCS). Final submitted PDF:
 reproducible (see CLAUDE.md, README.md; `python main.py`, `python -m experiments.<name>`).
 
 ## >>> CURRENT STAGE (read first) <<<
-Master-prompt revision project started 2026-10-28 (Sarjan pasted an 11-deliverable "paper rescue" prompt; message was truncated at section 19 "integrity rules").
-- Stage 1 DONE: `revision/AUDIT.md` (diagnosis, methodological audit, reviewer matrix, novelty audit, RQs, experiment plan E1-E10, evidence ledger) and `revision/LITERATURE.md` (search log + ~17 verified refs).
-- **CRITICAL FINDING:** the SWaT data used is mis-identified. The 395,298-row "normal" block is the normal rows of the ATTACK period; the genuine 7-day normal run (duplicated in the Kaggle copy, 7 channels blank) was discarded. All SWaT results (Tables 4, 6, Figs 5-7, 9-10, deep SWaT, edge SWaT) must be re-run under the standard protocol (E1). "1.44M rows" is wrong (~0.95M unique).
-- Other key flaws: thresholds tuned inconsistently (SKAB by F1 w/ old leaky features; SWaT by MCC on IF only); drift retraining uses ground-truth labels; no periodic-retrain baseline; edge latency is batch-amortised; in-container SWaT eval used training rows; single seed, no CIs.
-- NEXT: Stage 2 = run E1 (SWaT standard protocol) then E2/E3/E7 (thresholds, AUROC/AUPRC, seeds + block bootstrap, ablations), then E4 drift redo, E5 edge redo, E6 PyOD baselines. Then literature Stage 2, then rewrite (Deliverables 7-11).
+Revision project (after ICACS rejection) — ALL STAGES DONE 2026-10-28 except items needing humans.
+- Revised paper: `paper/paper2_revised.tex` (+ `paper/overleaf_paper2/` with figures). Venue-neutral article, author-year refs (IJPHM uses APA). NOT compiled (no LaTeX locally) — compile on Overleaf.
+- Deliverables: `revision/` 01..11 (stage-1 audit file holds 01/02/05/06 plan; 03 lit review; 04 novelty; 06 status; 08 change log; 09 repro package; 10 final assessment; 11 venues).
+- Revised code: `experiments/revision/` (common, skab_revised, swat_revised, drift_revised, edge_revised, figures_revised) + `docker/Dockerfile.edge2`. Results: `results/revised/*.json`, figures in `results/revised/figures/`. Originals untouched.
+- Before/after explainer Artifact: https://claude.ai/artifact/92o9bRhq862TJwb8u59sGN (private; share via its Share menu).
+- Headline revised findings: SWaT standard split -> 10 detectors tied (AUROC 0.825-0.858); label-free MCC best z-score 0.716; original winners collapse (EE 0.008, LSTM-AE 0.134). SKAB pooled ~chance; SKAB per-run protocol run-AUROC up to 0.79. Drift: real normal week breaks static IF (1% -> 40-94% after ~48h); retraining helps only with labelled-normal data; KS ≈ periodic; label-free retraining fails. IF single-reading latency 2.3-2.8 ms (orig claimed 0.002).
+- HUMAN TODO: (1) request official SWaT from iTrust, rerun swat_revised + drift_revised; (2) Prof. Shah approves new framing; (3) compile on Overleaf + IJPHM template; (4) read 6 key papers in full (revision/03 §1); (5) optional HAI dataset.
 
 ## Status
 - ICACS 2026 (Paper ID 580): **REJECTED** 2026-10-28. Scores 56 and 49 of 100
