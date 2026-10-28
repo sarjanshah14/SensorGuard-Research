@@ -2,13 +2,20 @@
 
 Papers are numbered so future work can be added alongside:
 
+- **`paper2_revised.tex`** — **the current paper (2026-10-28)**, rewritten after the
+  ICACS-2026 rejection from re-run experiments (`results/revised/`). Venue-neutral
+  `article` class, author-year references (IJPHM uses APA). Upload
+  `overleaf_paper2.zip` (regenerable: copy the .tex + `results/revised/figures/*.png`
+  into a `figures/` folder) to Overleaf, compile with pdfLaTeX. See
+  `../revision/08_change_log.md` for every change and `../CHECKPOINT.md` for what is left.
+
 - **`paper1.tex`** — the current, complete paper, formatted for **ICACS 2026 /
   Springer LNNS** in the **Springer LLNCS** class (`llncs.cls`): six-model
   comparison across **two** datasets (SKAB + SWaT), the dataset-dependent-winner
   finding, a lightweight LSTM-autoencoder deep baseline, concept-drift
   adaptation, and the edge/constrained-hardware deployability result. Written in
   the impersonal academic voice (no first-person "we/our"). Built entirely from
-  this repo's real results. **This is the paper to submit.**
+  this repo's real results. Superseded by `paper2_revised.tex` (kept as the submitted, rejected version).
 - `paper.tex` — the earlier single-dataset draft (SKAB only, first-person
   voice, IEEE format). Kept for history; superseded by `paper1.tex`. The IEEE
   version of `paper1.tex` is preserved in git history (before the LLNCS reformat).

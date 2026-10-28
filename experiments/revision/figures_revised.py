@@ -108,7 +108,8 @@ def fig_edge():
         c = BLUE if ds == "SKAB" else ORANGE
         ax.plot(v["size_KB"], v["latency_ms_p50"], "o" if ds == "SKAB" else "s", color=c, ms=7, mec="white", mew=1.2)
         if ds == "SWaT":
-            ax.annotate(name, (v["size_KB"], v["latency_ms_p50"]), textcoords="offset points", xytext=(5, 2), fontsize=7, color=MUTED)
+            off = {"ECOD": (-34, -12), "COPOD": (-40, 6), "EllipticEnvelope": (-30, 9), "One-Class SVM": (6, -11)}.get(name, (5, 2))
+            ax.annotate(name, (v["size_KB"], v["latency_ms_p50"]), textcoords="offset points", xytext=off, fontsize=7, color=MUTED)
     from matplotlib.lines import Line2D
     ax.legend(handles=[Line2D([], [], marker="o", ls="", color=BLUE, label="SKAB (40 features)"),
                        Line2D([], [], marker="s", ls="", color=ORANGE, label="SWaT (120 features)")], frameon=False, fontsize=8)
