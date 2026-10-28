@@ -80,8 +80,9 @@ class Elliptic:
         return self.m.mahalanobis(self.p.transform(X))
 
 
-def make_models(seed=0, cap=None):
-    """All classical detectors. `cap` bounds training rows for OCSVM/LOF only."""
+def make_models(seed=0, cap=None, cap_ecdf=None):
+    """All classical detectors. `cap` bounds training rows for OCSVM/LOF;
+    `cap_ecdf` for ECOD/COPOD, which PyOD rescores against all training rows."""
     from pyod.models.copod import COPOD
     from pyod.models.ecod import ECOD
     from pyod.models.hbos import HBOS
@@ -92,8 +93,8 @@ def make_models(seed=0, cap=None):
         "IsolationForest": SK(lambda: IsolationForest(n_estimators=100, random_state=seed), "neg_score_samples"),
         "One-Class SVM": SK(lambda: OneClassSVM(kernel="rbf", nu=0.1), "neg_decision", cap),
         "LOF": SK(lambda: LocalOutlierFactor(n_neighbors=20, novelty=True), "neg_score_samples", cap),
-        "ECOD": SK(lambda: ECOD(), "pyod"),
-        "COPOD": SK(lambda: COPOD(), "pyod"),
+        "ECOD": SK(lambda: ECOD(), "pyod", cap_ecdf),
+        "COPOD": SK(lambda: COPOD(), "pyod", cap_ecdf),
         "HBOS": SK(lambda: HBOS(), "pyod"),
     }
 

@@ -19,7 +19,7 @@ Date: 2026-10-28. No acceptance is guaranteed or predicted.
 ## What still limits the contribution
 - **Novelty is modest and methodological.** Protocol-sensitivity critiques exist (Kim 2022, Wu & Keogh 2023, Liu & Paparrizos 2024, Garg 2021). Our specific angles are narrower. A selective ML venue may judge it incremental.
 - **SWaT results rest on a reconstructed re-upload** (24 of 25 continuous sensors). Must be rerun on the official iTrust release before submission. This is the single most important pending item.
-- **Two water datasets only.**
+- **Three datasets** (SKAB, SWaT, HAI); HAI's turbine/boiler processes are hardware-in-the-loop, not real machinery; drift and cost studies on SWaT only.
 - **Drift study is one stream**, no CIs across streams, two detectors, one window length.
 - **Container ≠ device.**
 - **Literature search** was web-search based; papers were not read in full (only abstracts/records). Authors must read the key ~6 papers in full before submission (listed in `03_literature_review.md` §1).

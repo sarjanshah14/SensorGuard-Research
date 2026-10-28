@@ -23,13 +23,14 @@ Revised: `paper/paper2_revised.tex`. Revised numbers: `results/revised/*.json`. 
 | S14 | "Container reproduces SWaT ordering (EE 0.81 vs IF 0.66)" | Test set contained training rows | Removed; container measures cost only | `edge_revised.py` docstring | Yes |
 | S15 | "Raspberry-Pi-class" / "edge-deployable" | Overstates a capped Docker container | "one-CPU, 1 GB ARM64 container on an Apple M4 host; not a physical device; latencies are lower bounds" | — | No |
 | S16 | Mechanism "SWaT's 51 correlated sensors favour covariance models" | Untested; 25 sensors used | Withdrawn; replaced by measured threshold-transfer behaviour | `swat.json` | No |
+| S18 | Two datasets, both water | Reviewer depth/generalisation; "both water systems" limitation | Added HAI 21.03 (turbine, boiler, water treatment; HIL testbed), same protocol. Ranking differs from SWaT (PCA/LOF lead 0.93/0.92; EE 0.66); label-free thresholds transfer (FAR 0.4-1.6%); only z-score and OCSVM dependable on both SWaT and HAI | `hai.json` | Yes (E9) |
 | S17 | Contribution: dataset-dependent winner; deep not always better | Already established (Audibert 2022; Sarfraz 2024) | Reframed: protocol sensitivity + retraining-label risk + measured cost; prior work credited | `04_novelty_and_research_gap.md` | No |
 
 ## B. Editorial changes
 
 | # | Original | Revised | Reason |
 |---|---|---|---|
-| E1 | Title "Comparative and Adaptive Evaluation… A Cross-Dataset and Edge-Deployability Study" | "Protocol Choices Decide the Winner: A Re-examination of Lightweight Unsupervised Anomaly Detectors for Industrial Sensor Data, with Retraining Policies and Resource Costs" | Matches the actual contribution; drops "cross-dataset" (no transfer was tested) and "edge" (no device) |
+| E1 | Title "Comparative and Adaptive Evaluation… A Cross-Dataset and Edge-Deployability Study" | "Evaluation Protocol Decides the Winner: Threshold Stability, Retraining Risk and Cost of Lightweight Unsupervised Anomaly Detectors for Industrial Sensor Data" ("re-examination" dropped: the earlier version was never published) | Matches the actual contribution; drops "cross-dataset" (no transfer was tested) and "edge" (no device) |
 | E2 | 28 references, many tool/1950s-2000s method cites | 39 references; added 2018-2024 benchmark, critique, metric, drift and edge literature; tool cites moved to availability statement | Reviewer reference score 4/10 |
 | E3 | Related Work = list of methods | Organised as argument: detectors → what benchmarks agree on → where evaluations go wrong → drift → cost → gap | Reviewer theory/depth scores |
 | E4 | Equations definitional only | MCC equation now used to explain F1 of flag-everything (2π/(1+π) = 0.46 on SKAB) and precision's dependence on prevalence | Theory score |

@@ -12,7 +12,7 @@ Plan and rationale: `01_02_04_05_06_stage1_audit.md` §5. Status as of 2026-10-2
 | E6 | ECOD, COPOD, HBOS baselines | **Performed** | all JSONs |
 | E7 | Ablations: elapsed-time feature, features before/after dropping rows | **Performed** | skab.json `ablation_auroc` |
 | E8 | SKAB reference (per-run, first 400 rows) protocol | **Performed** | skab.json `skab_benchmark_protocol` |
-| E9 | Third dataset (HAI) | **Pending** (optional) | — |
+| E9 | Third dataset (HAI 21.03) | **Performed** | `results/revised/hai.json` |
 | E10 | Official SWaT from iTrust | **Pending — requires Sarjan/Prof. Shah to request** | — |
 | — | VUS-PR, range-based P/R | Not done (stated as limitation) | — |
 | — | Drift study with multiple streams / CIs, ADWIN, threshold-only adaptation | Not done (limitation) | — |

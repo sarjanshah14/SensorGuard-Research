@@ -1287,3 +1287,13 @@ local compile, because this machine has no LaTeX installed.
 **Problems hit:** torch in the venv was missing `libtorch_cpu.dylib` (reinstalled 2.12.1). Docker was not installed; Sarjan installed Docker Desktop mid-run. First image had a 0-byte `typing_extensions.py` (corrupt layer, exit 135 bus error) → rebuilt with `--no-cache`. The fitted PyOD wrappers held lambdas and could not be pickled for the size benchmark → drop the factory after fit. Figure label collisions fixed after looking at each render.
 
 **Results (plain language):** On SWaT done properly, all ten detectors are equally good at ranking attacks; the "winners" in the old paper came from how the data were split and how thresholds were set. Simple detectors (z-score, OCSVM, IF) kept their false alarms under control without labels; LOF, PCA and the deep model did not. Real normal operation does drift, but retraining only helps if you know which data are normal; without labels it fails. Real per-reading latency is ~1,000× the old number. The paper was rewritten around this ("Protocol choices decide the winner"), with 39 verified references. What is left needs people: official SWaT data, Prof. Shah's approval, Overleaf compile.
+
+---
+
+## Session 25 — 2026-10-29 — HAI as third dataset; IJPHM Word manuscript
+
+**Goal:** add a non-water benchmark, settle the title, and produce the manuscript in the IJPHM template (Sarjan supplied the three IJPHM .docx templates; Prof. Shah approved the new framing).
+
+**Steps:** downloaded HAI 21.03 (sparse git checkout, 179 MB, `external_data/`, gitignored); wrote `experiments/revision/hai_revised.py` with the same protocol as SWaT. Two runs were killed (exit 137, out of memory) inside PyOD's ECOD: it rescores test rows jointly with all stored training rows (850k × 275 features). Fixed by fitting ECOD/COPOD on a 100k-row subsample and scoring in 50k-row chunks (documented as a small source of score variation). For Word output, pandoc with the IJPHM template as reference doc, then a post-processor that maps pandoc's styles to the template's `phm_*` styles (headings auto-number), rebuilds the title block, adds the CC BY licence note, and sets one-column title/abstract + two-column body. Bugs fixed on the way: pandoc writes `" />"` (regex missed it); a greedy section-properties replacement deleted the body.
+
+**Plain language:** On HAI the detectors are *not* tied and a different group wins (PCA and LOF), and thresholds learned from normal data work fine there. So "who wins" depends on the plant as well as the protocol; the steady performers across both industrial plants were the two simplest methods. The paper now has three datasets and a Word file in the journal's own template.

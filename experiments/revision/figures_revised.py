@@ -38,10 +38,11 @@ def auroc_ci(ax, models, title, get):
 
 
 def fig_auroc():
-    sk, sw = J("skab")["pooled"]["models"], J("swat")["standard"]["models"]
-    fig, axs = plt.subplots(1, 2, figsize=(9, 3.8))
+    sk, sw, ha = J("skab")["pooled"]["models"], J("swat")["standard"]["models"], J("hai")["models"]
+    fig, axs = plt.subplots(1, 3, figsize=(13, 3.8))
     auroc_ci(axs[0], sk, "SKAB (pooled protocol)", lambda m: (m["auroc"], m["ci95"]["auroc"]))
     auroc_ci(axs[1], sw, "SWaT (standard protocol)", lambda m: (m["full"]["auroc"], m["full"]["ci95"]["auroc"]))
+    auroc_ci(axs[2], ha, "HAI 21.03", lambda m: (m["full"]["auroc"], m["full"]["ci95"]["auroc"]))
     fig.tight_layout(); fig.savefig(f"{F}/auroc_ci.png"); plt.close(fig)
 
 
