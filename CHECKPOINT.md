@@ -17,7 +17,8 @@ Revision project (after ICACS rejection) — ALL STAGES DONE 2026-10-28 except i
 - Revised code: `experiments/revision/` (common, skab_revised, swat_revised, drift_revised, edge_revised, figures_revised) + `docker/Dockerfile.edge2`. Results: `results/revised/*.json`, figures in `results/revised/figures/`. Originals untouched.
 - Before/after explainer Artifact: https://claude.ai/artifact/92o9bRhq862TJwb8u59sGN (private; share via its Share menu).
 - Headline revised findings: SWaT standard split -> 10 detectors tied (AUROC 0.825-0.858); label-free MCC best z-score 0.716; original winners collapse (EE 0.008, LSTM-AE 0.134). SKAB pooled ~chance; SKAB per-run protocol run-AUROC up to 0.79. Drift: real normal week breaks static IF (1% -> 40-94% after ~48h); retraining helps only with labelled-normal data; KS ≈ periodic; label-free retraining fails. IF single-reading latency 2.3-2.8 ms (orig claimed 0.002).
-- HUMAN TODO: (1) request official SWaT from iTrust, rerun swat_revised + drift_revised; (2) Prof. Shah approves new framing; (3) compile on Overleaf + IJPHM template; (4) read 6 key papers in full (revision/03 §1); (5) optional HAI dataset.
+- 2026-10-28: Prof. Shah APPROVED the new framing; Sarjan compiles on Overleaf himself. Target IJPHM: https://papers.phmsociety.org/index.php/ijphm/about/submissions
+- HUMAN TODO: (1) request official SWaT + WADI from iTrust (https://itrust.sutd.edu.sg/itrust-labs_datasets/), rerun swat_revised + drift_revised; HAI (public, github.com/icsdataset/hai) can be added meanwhile; (3) IJPHM template; (4) read 6 key papers in full (revision/03 §1); (5) optional HAI dataset.
 
 ## Status
 - ICACS 2026 (Paper ID 580): **REJECTED** 2026-10-28. Scores 56 and 49 of 100
