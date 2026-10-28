@@ -1,6 +1,6 @@
 """Convert paper2_revised.tex to an IJPHM Word manuscript.
 
-Run: python paper/make_ijphm_docx.py   -> paper/paper2_ijphm.docx
+Run: python paper/make_ijphm_docx.py   -> paper/Shah_IJPHM_Evaluation_Protocol_Decides_the_Winner.docx
 
 1. Rewrite the LaTeX so pandoc can handle it: natbib citations become APA text
    from the \\bibitem labels; simple numeric maths becomes plain text.
@@ -21,7 +21,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 TEX = HERE / "paper2_revised.tex"
 TEMPLATE = HERE.parent / "ijphm" / "ijPHM-FullPaperTemplate.docx"
-OUT = HERE / "paper2_ijphm.docx"
+OUT = HERE / "Shah_IJPHM_Evaluation_Protocol_Decides_the_Winner.docx"
 UNNUMBERED = {"References", "Data and Code Availability", "Disclosure of Interests"}
 LICENCE = ("Sarjan Shah et al. This is an open-access article distributed under the terms of the Creative "
            "Commons Attribution 3.0 United States License, which permits unrestricted use, distribution, and "
