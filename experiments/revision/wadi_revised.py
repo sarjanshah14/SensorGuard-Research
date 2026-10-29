@@ -12,7 +12,9 @@ WADI = water-distribution testbed (extension of SWaT), 127 points at 1 Hz. Proto
     thirds ("tail");
   - continuous points = > 10 distinct values in the training rows;
   - rows are 1 Hz and in order; the file's Time column is malformed, so a synthetic
-    1-second index is used for the rolling features;
+    1-second index is used for the rolling features. The normal run has one gap
+    (Row counter jumps by 264,001, 29 Sep - 2 Oct); rolling features and LSTM
+    windows restart at it ("seg");
   - OCSVM/LOF on a 20,000-row and ECOD/COPOD on a 100,000-row evenly spaced subsample.
 """
 
@@ -50,19 +52,21 @@ def load():
     lab = [c for c in a.columns if c.startswith("Attack")][0]
     a = a.dropna(subset=[lab])                       # trailing empty rows
     a["attack"] = (a[lab] == -1).astype(int)
-    meta = ["Row", "Date", "Time"]
+    n["seg"] = (n["Row"].diff() > 1).cumsum()          # 0 before the release gap, 1 after
+    a["seg"] = 0
+    meta = ["Row", "Date", "Time", "seg"]
     cols = [c for c in n.columns if c not in meta and n[c].notna().any() and c in a.columns]
     n = n.iloc[STARTUP:].reset_index(drop=True)
     sensors = [c for c in cols if n[c].nunique() > 10 and a[c].notna().mean() > 0.99]  # 2 trailing empty rows
     idx = lambda d: d.set_index(pd.date_range("2017-01-01", periods=len(d), freq="s"))
     sensors = [c for c in sensors if c not in EXCLUDE]
-    n = idx(n[sensors].ffill().bfill()); a = idx(a[sensors + ["attack"]].ffill().bfill())
+    n = idx(n[sensors + ["seg"]].ffill().bfill()); a = idx(a[sensors + ["attack", "seg"]].ffill().bfill())
     assert sensors, "no WADI sensors selected"
     return [n], [a], sensors
 
 
 def feats(dfs, sensors):
-    return [build_features(d, sensor_cols=sensors, include_elapsed=False)[0] for d in dfs]
+    return [build_features(d, group_col="seg", sensor_cols=sensors, include_elapsed=False)[0] for d in dfs]
 
 
 def main():
@@ -97,12 +101,13 @@ def main():
     dbl.SEED = 0; torch.manual_seed(0); np.random.seed(0)
     rs = StandardScaler().fit(tr[0][sensors].to_numpy()[:cut])
     R = lambda d: rs.transform(d[sensors].to_numpy()).astype(np.float32)
-    w = np.concatenate([dbl.strided_windows(R(d)[:cut], dbl.WINDOW, dbl.TRAIN_STRIDE * 2)
-                        for i, d in enumerate(tr)])  # single normal run
+    seg = tr[0]["seg"].to_numpy()[:cut]
+    w = np.concatenate([dbl.strided_windows(R(tr[0])[:cut][seg == g], dbl.WINDOW, dbl.TRAIN_STRIDE * 2)
+                        for g in np.unique(seg)])  # windows never cross the release gap
     t = time.perf_counter()
     model, losses = dbl.train_autoencoder(w, len(sensors), verbose=False)
     fit_s["LSTM-AE"] = round(time.perf_counter() - t, 1)
-    s_vn = dbl.row_scores(model, R(tr[0])[cut:], np.zeros(len(tr[0]) - cut), dbl.WINDOW)
+    s_vn = dbl.row_scores(model, R(tr[0])[cut:], tr[0]["seg"].to_numpy()[cut:], dbl.WINDOW)
     s_te = np.concatenate([dbl.row_scores(model, R(d), np.zeros(len(d)), dbl.WINDOW) for d in te])
     scores["LSTM-AE"] = (s_vn, s_te)
     print(f"  LSTM-AE {fit_s['LSTM-AE']}s ({len(w)} windows)", flush=True)

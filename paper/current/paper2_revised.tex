@@ -39,8 +39,9 @@ threshold-dependent metrics under two calibration rules, event recall and
 block-bootstrap confidence intervals on four benchmarks: SKAB (pump and valve
 testbed), SWaT and WADI (water treatment and distribution, official iTrust releases)
 and HAI (turbine, boiler and water-treatment hardware-in-the-loop testbed). On SWaT,
-all ten detectors rank attacks equally well (AUROC $0.81$--$0.86$, overlapping
-intervals); on SKAB with pooled training all detectors are close to chance (best AUROC
+all ten detectors reach AUROC $0.81$--$0.86$ with overlapping intervals, and the two
+highest-scoring are not significantly different (equivalence of all ten was not formally
+tested); on SKAB with pooled training all detectors are close to chance (best AUROC
 $0.575$, CI $0.504$--$0.645$) and none is distinguishable from the next best, while
 SKAB's per-run protocol yields run-level AUROC up to $0.79$ and an inverted ranking;
 on HAI, PCA reconstruction and LOF lead ($0.93$, $0.92$) and Elliptic Envelope trails
@@ -247,8 +248,9 @@ distinct values in the training rows are used. The time column stores only minut
 seconds, so rows are indexed by their order; the row counter and the per-day row counts
 (86{,}400 on every complete day) confirm gap-free 1\,Hz sampling in the attack file. The
 normal file has one gap of 264{,}000 rows (about 73 hours, 29 September to 2 October)
-removed in the release; it lies in the training portion, so only the few rolling windows
-that straddle it join non-adjacent readings.
+removed in the release; it lies in the training portion, and rolling features and
+autoencoder windows are restarted at it so that no window joins readings from either side.
+Ignoring the gap changed no classical detector's AUROC by more than $0.001$.
 
 \paragraph{HAI.} HAI (version 21.03) comes from a hardware-in-the-loop testbed in
 which a steam-turbine process, a boiler process and a water-treatment process are
@@ -495,8 +497,10 @@ on HAI a leading group separates from HBOS and Elliptic Envelope.}
 \subsection{SWaT under the standard protocol}
 Table~\ref{tab:swat} and Fig.~\ref{fig:auroc} report SWaT (official release, 25
 sensors). All ten detectors rank attack rows well (AUROC $0.811$--$0.856$) and their
-CIs overlap almost completely; the difference between the top two (ECOD and COPOD) is
-$0.007$ (CI $-0.003$ to $0.017$). Isolation Forest's AUROC is $0.824$ for the seed-0
+CIs overlap almost completely. The paired comparison of the two highest-scoring detectors
+(ECOD and COPOD) gives a difference of $0.007$ (CI $-0.003$ to $0.017$), so no significant
+difference is established between them; equivalence among all ten detectors was not
+formally tested. Isolation Forest's AUROC is $0.824$ for the seed-0
 model in the table and $0.819\pm0.005$ over ten seeds. The LSTM autoencoder ranks attacks as well as the classical detectors
 (AUROC $0.822$, AUPRC $0.731$).
 
@@ -598,17 +602,17 @@ Elliptic Envelope & 0.663 [0.608, 0.716] & 0.114 & 0.179 [0.119, 0.248] & 0.007 
 \subsection{WADI}
 \label{sec:wadi}
 WADI is the hardest benchmark (Table~\ref{tab:wadi}). With all 67 points, the
-per-feature detectors lead (HBOS AUROC $0.741$, Isolation Forest $0.720$, COPOD and ECOD
+per-feature detectors lead (HBOS AUROC $0.742$, Isolation Forest $0.720$, COPOD and ECOD
 $0.71$; Isolation Forest $0.725\pm0.016$ over ten seeds; the difference between HBOS and
-Isolation Forest is $0.021$, CI $-0.018$ to $0.063$), while the $z$-score, One-Class
+Isolation Forest is $0.021$, CI $-0.019$ to $0.064$), while the $z$-score, One-Class
 SVM, LOF, PCA reconstruction, Elliptic Envelope and the LSTM autoencoder are at chance
 (AUROC $0.46$--$0.52$). These six detectors raise alarms on 55.8--56.1\% of the attack
 file's normal rows under the label-free rule, and the near-identical rate points to a
 single cause: the analyser 2B\_AIT\_002\_PV is outside its training range on 55.5\% of
 those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Repeating the experiment
 without these three analysers removes the effect: every detector's label-free false-alarm
-rate falls to 0.6--1.4\%, AUROC moves into a common band of $0.650$--$0.748$ with
-overlapping CIs, and label-free MCC reaches $0.351$ for the LSTM autoencoder and
+rate falls to 0.6--1.4\%, AUROC moves into a common band of $0.649$--$0.748$ with
+overlapping CIs, and label-free MCC reaches $0.329$ for the LSTM autoencoder and
 $0.18$--$0.23$ for LOF, the $z$-score, PCA reconstruction and One-Class SVM. This
 ablation is a post-hoc diagnostic: the three analysers were chosen after inspecting their
 ranges in the attack file, so it shows that the sensor set can decide whether thresholds
@@ -628,16 +632,16 @@ and without the three drifting analysers (64 points). AUROC with 95\% block-boot
  & \multicolumn{3}{c}{All 67 points} & \multicolumn{3}{c}{Without 3 drifting analysers} \\
 Detector & AUROC [95\% CI] & MCC LF & FAR LF & AUROC [95\% CI] & MCC LF & FAR LF \\
 \midrule
-HBOS & 0.741 [0.588, 0.863] & 0.078 & 0.014 & 0.748 [0.599, 0.865] & 0.017 & 0.013 \\
+HBOS & 0.742 [0.588, 0.862] & 0.070 & 0.014 & 0.748 [0.602, 0.864] & 0.022 & 0.012 \\
 Isolation Forest & 0.720 [0.555, 0.843] & 0.031 & 0.013 & 0.720 [0.570, 0.835] & 0.029 & 0.013 \\
 COPOD & 0.710 [0.582, 0.818] & 0.055 & 0.009 & 0.709 [0.576, 0.817] & 0.054 & 0.009 \\
 ECOD & 0.709 [0.585, 0.810] & 0.061 & 0.009 & 0.703 [0.567, 0.808] & 0.060 & 0.009 \\
-One-Class SVM & 0.517 [0.380, 0.655] & $-$0.030 & 0.559 & 0.733 [0.590, 0.859] & 0.183 & 0.011 \\
-LOF & 0.484 [0.337, 0.626] & $-$0.026 & 0.559 & 0.650 [0.502, 0.763] & 0.230 & 0.006 \\
-$z$-score & 0.479 [0.341, 0.620] & $-$0.027 & 0.559 & 0.697 [0.575, 0.807] & 0.214 & 0.009 \\
-PCA-recon & 0.478 [0.330, 0.627] & $-$0.027 & 0.558 & 0.686 [0.480, 0.833] & 0.192 & 0.010 \\
+One-Class SVM & 0.517 [0.380, 0.655] & $-$0.030 & 0.559 & 0.733 [0.590, 0.859] & 0.183 & 0.010 \\
+LOF & 0.484 [0.337, 0.625] & $-$0.026 & 0.558 & 0.649 [0.502, 0.762] & 0.230 & 0.006 \\
+$z$-score & 0.479 [0.341, 0.620] & $-$0.027 & 0.559 & 0.697 [0.574, 0.807] & 0.214 & 0.009 \\
+PCA-recon & 0.478 [0.330, 0.627] & $-$0.027 & 0.558 & 0.686 [0.479, 0.832] & 0.191 & 0.010 \\
 Elliptic Envelope & 0.475 [0.327, 0.635] & $-$0.074 & 0.559 & 0.709 [0.551, 0.844] & $-$0.006 & 0.011 \\
-LSTM-AE & 0.464 [0.295, 0.623] & 0.014 & 0.561 & 0.720 [0.494, 0.887] & 0.351 & 0.011 \\
+LSTM-AE & 0.467 [0.296, 0.627] & 0.019 & 0.560 & 0.695 [0.471, 0.876] & 0.329 & 0.011 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -658,7 +662,7 @@ split rebuilt from the public re-upload and the official release give practicall
 identical results (every detector's AUROC within $0.001$, label-free MCC within $0.008$),
 so the reconstruction is faithful and the re-upload's problem lies in how its files are
 organised. The one real difference is the 25th sensor, the analyser AIT201, which the
-re-upload leaves blank. Adding it leaves the ranking tied (AUROC $0.81$--$0.86$) but
+re-upload leaves blank. Adding it leaves AUROC in the same narrow range ($0.81$--$0.86$) but
 changes which thresholds survive: the $z$-score's label-free false-alarm rate rises from
 1.4\% to 42\% (MCC $0.716$ to $0.215$) and One-Class SVM's from 3.8\% to 58\% (MCC
 $0.660$ to $0.184$), while COPOD (MCC $0.592$ to $0.628$) and Isolation Forest ($0.630$ to
@@ -933,7 +937,8 @@ Cost measurement & Batch-averaged vs single-reading latency for Isolation Forest
 \paragraph{Ranking quality is not the bottleneck; thresholds and sensors are.}
 On SWaT, ten detectors that span statistical, distance, density, tree, copula and
 recurrent families lie within $0.045$ AUROC of each other with overlapping intervals (the
-paired difference between the top two includes zero), and on WADI they fall into a common
+paired difference between the top two includes zero; equivalence of all ten was not
+formally tested), and on WADI they fall into a common
 band once three drifting analysers are removed. This agrees with large benchmark studies
 that find no consistent winner and strong simple baselines
 \citep{audibert2022,sarfraz2024}. What separates detectors in use is whether a threshold
@@ -1026,8 +1031,9 @@ comparison was not found are limited to that search.
 
 Evaluating ten lightweight and deep detectors on SKAB, SWaT, WADI and HAI under
 documented, standard protocols answered the four research questions as follows.
-(RQ1) On SWaT the detectors rank attacks equally well (AUROC $0.81$--$0.86$, overlapping
-intervals), and on WADI they do so once three drifting analysers are removed; on HAI
+(RQ1) On SWaT all ten detectors reach AUROC $0.81$--$0.86$ with overlapping intervals
+(the top two not significantly different; equivalence of all ten not formally tested),
+and on WADI they fall into a common band once three drifting analysers are removed; on HAI
 they separate, with PCA reconstruction and LOF leading ($0.93$, $0.92$) and Elliptic
 Envelope trailing ($0.66$); on SKAB with pooled training, all are close to chance and
 none is distinguishable from the next best. (RQ2) Protocol choices change the conclusions more than detector choice does:

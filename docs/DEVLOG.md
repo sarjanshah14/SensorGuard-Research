@@ -1339,3 +1339,15 @@ local compile, because this machine has no LaTeX installed.
 **Plain language:** the research did not change. The Word file now shows every number in proper tables (the earlier "missing" numbers were a conversion bug), and the text now claims exactly what the evidence supports, no more.
 
 **Addendum (guidelines check):** the IJPHM author guidelines require the small-caps journal header from page 2 and the first-author licence note. Rebuilding the section breaks had dropped the template's header/footer references; they are now on every section, with a distinct first page (journal/ISSN/year footer, no header). LibreOffice needed the distinct-first-page flag on the two-column body section as well, as in the template. Plain language: the file now looks like an IJPHM paper on every page.
+
+## Session 29 — 2026-10-30 — Third external review: SWaT claim, WADI gap
+
+**Goal:** three targeted fixes from a third review (readiness 7/10, "close to submission-ready").
+
+**SWaT wording:** only the top-two paired difference was ever computed, so "all ten rank attacks equally well" overclaimed. Abstract, results, protocol section, discussion and conclusion now say AUROC 0.81-0.86 with overlapping intervals, the top two not significantly different, and equivalence of all ten not formally tested.
+
+**WADI gap:** the normal run has a 264,000-row release gap (Row counter jump). `wadi_revised.py` now tags segments ("seg") and passes them to `build_features(group_col="seg")` and to the LSTM training windows and scoring, so nothing straddles the gap. Both WADI runs were redone (old JSONs compared before overwriting). Classical detectors: AUROC unchanged within 0.001, HBOS MCC 0.078->0.070 (all points) and 0.017->0.022 (without analysers). LSTM-AE without analysers: AUROC 0.720->0.695, MCC 0.351->0.329; with only 6 fewer training windows this is training variability, not a real change. Table 5 was regenerated straight from the JSON; text values updated; the Datasets section records the robustness check.
+
+**Found on the way:** the Word build takes figures from `overleaf_paper2/figures/` first, and those were older renders; they are now synced from `results/revised/figures/`.
+
+**Plain language:** the paper no longer claims more than the tests show, and the WADI preprocessing no longer glues together readings three days apart. The numbers barely moved.

@@ -35,6 +35,8 @@ Revised: `paper/paper2_revised.tex`. Revised numbers: `results/revised/*.json`. 
 | S27 | SKAB "none above chance" vs IF CI [0.504, 0.645]; seed-0 vs 10-seed values unclear; CI overlap used as a test | Second external review | Above-chance vs better-than-others separated; seed-0 tables + seed spread + test-block-only CIs stated; paired-test basis stated |
 | S28 | Methods said periodic = same retrain count as trigger; Table 8 lacked p99; "Model mem."; 120 vs 125 features | Second external review | P sweep, attempts/refits/CPU described, P=4 added, single stream bounded; p99 added; "Peak RSS increase"; 24-sensor input noted |
 | S29 | Abstract FAR grouping imprecise; WADI ablation and timing unexplained | Second external review | Detectors named; ablation marked post hoc; WADI continuity verified and stated |
+| S30 | SWaT "all ten rank equally well" | Third external review: only top-2 paired test | Reworded in five places; equivalence of all ten stated as untested |
+| S31 | WADI rolling features crossed a 73 h release gap | Third external review | Features and LSTM windows restart at the gap; WADI rerun; classical AUROC within 0.001; Table 5 regenerated |
 | S17 | Contribution: dataset-dependent winner; deep not always better | Already established (Audibert 2022; Sarfraz 2024) | Reframed: protocol sensitivity + retraining-label risk + measured cost; prior work credited | `04_novelty_and_research_gap.md` | No |
 
 ## B. Editorial changes
