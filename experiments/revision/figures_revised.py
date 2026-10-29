@@ -73,7 +73,7 @@ def fig_protocol():
 
 
 def fig_drift():
-    dr = J("drift")
+    dr = J("drift_official")
     fig, axs = plt.subplots(1, 3, figsize=(12, 3.6), gridspec_kw={"width_ratios": [1.3, 1, 1]})
     traj = dr["static_if_normal_fpr_trajectory"]
     axs[0].plot(np.arange(len(traj)), np.array(traj) * 100, color=BLUE, lw=2)

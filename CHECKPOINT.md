@@ -11,8 +11,8 @@ Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference
 ## >>> CURRENT STAGE (read first) <<<
 - 2026-10-30: folder reorganised (see README.md layout). Official SWaT (iTrust A1&A2 Dec 2015) and WADI A2 obtained and run. Kaggle SWaT copy matches official with the same 24 sensors (AUROC within 0.001); the 25th sensor AIT201 (missing from the copy) drifts and breaks z-score/OCSVM label-free thresholds (z FAR 1.4% -> 42%). WADI: 3 drifting analysers cause 56% false alarms for 6 detectors; removing them -> ~1%.
 - Paper: `paper/current/paper2_revised.tex`; Word: `paper/current/Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx` (`python paper/current/make_ijphm_docx.py`). 45 refs.
-- PENDING: drift study on official SWaT (`SWAT_SOURCE=official python -m experiments.revision.drift_revised`, resumable via `results/revised/drift_official.json.partial`); then update paper drift section (currently re-upload numbers).
-- PENDING (Sarjan): public GitHub push for the Data Availability URL (licensed data excluded by .gitignore); final Word layout check; submit to IJPHM https://papers.phmsociety.org/index.php/ijphm/about/submissions
+- DONE 2026-10-30: drift study on official SWaT (`results/revised/drift_official.json`); paper drift section updated. Paper is FINAL pending Sarjan/Prof. Shah read-through. Code public at https://github.com/sarjanshah14/SensorGuard-Research (link in Data Availability).
+- PENDING (Sarjan): final Word layout check + read with Prof. Shah; submit to IJPHM https://papers.phmsociety.org/index.php/ijphm/about/submissions
 - Explainers: https://claude.ai/artifact/GPYx5MBE1RYdqSZ9FJiRun (from-zero explainer), https://claude.ai/artifact/92o9bRhq862TJwb8u59sGN (before/after). Both private.
 - Reports: `docs/revision/` 01-11. Logs: `docs/PROGRESS.md`, `docs/DEVLOG.md`, `docs/ROADMAP.md`.
 

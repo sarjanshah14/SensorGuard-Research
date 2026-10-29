@@ -434,8 +434,8 @@ Found the SWaT split error, inconsistent thresholds, label-using drift retrainin
 ### [x] R2. Literature review (`revision/03_literature_review.md`) — 39 verified references
 ### [x] R3. Re-run all experiments under fixed protocols (`experiments/revision/`, `results/revised/`)
 ### [x] R4. Rewrite paper (`paper/paper2_revised.tex`), change log, final assessment, venue strategy
-### [ ] R5. Rerun on official SWaT (iTrust) — needs Sarjan/Prof. Shah to request the data
-### [ ] R6. Prof. Shah approves new framing; compile on Overleaf; convert to IJPHM template
+### [x] R5. Rerun on official SWaT (iTrust) + WADI A2 — done 2026-10-30
+### [x] R6. Prof. Shah approved framing; IJPHM Word manuscript built; code public on GitHub
 ### [ ] R7. Submit to IJPHM (+ arXiv preprint)
 
 ---

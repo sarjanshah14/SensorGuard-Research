@@ -1309,3 +1309,19 @@ local compile, because this machine has no LaTeX installed.
 **Fixes:** drift now records attempts and refits and sweeps P = 1..48 to give a budget curve; edge uses spawned processes, reports baseline RSS, per-model peak increase (VmHWM reset after loading) and the cgroup's memory.peak/events. Word build moves tables/figures after the references into a one-column section and puts table captions below. Added implementation table, synthesis table, Poenaru-Olaru et al. (CAIN 2024) as closest prior work, new title.
 
 **Plain language:** the two numbers the reviewer doubted were measurement mistakes, now fixed: the container really was capped at 1 GB (the heavy ECOD/COPOD runs pushed it to the limit without crashing), and with fair budgets a drift trigger saves some retrains but checking for drift costs more than simply retraining every hour. Only the official SWaT data and a public code link remain.
+
+---
+
+## Session 27 — 2026-10-30 — Official SWaT and WADI, repository clean-up, public code
+
+**Goal:** close the external reviewer's top blocker (official SWaT), add WADI, make the code public, tidy the folder, and explain the whole project from zero.
+
+**Data:** the first iTrust download failed (OneDrive throttling, "TooManyRequests"; only network logs arrived). Re-downloading just the three Physical files worked: Normal_v1 (495,000 rows), Attack_v0 (449,919 rows, 54,621 attacks incl. 37 labelled "A ttack"). WADI A2 (2019) arrived intact (784,571 normal / 172,803 attack rows; 4 empty columns; 2 trailing empty rows that first made the sensor filter reject everything).
+
+**Findings:** with the re-upload's 24 sensors, official and re-upload results agree to within 0.001 AUROC, so the reconstruction was faithful. Adding AIT201 (blank in the re-upload) leaves ranking tied but breaks the z-score and One-Class SVM label-free thresholds; analysers AIT402/AIT201/AIT50x leave their training ranges in the attack week. WADI shows the same mechanism: 2B_AIT_002_PV out of range on 55.5% of normal test rows gives six detectors an identical ~56% false-alarm rate; dropping three analysers brings it to ~1%.
+
+**Problems:** a "wait until WADI finishes" chain matched its own command line with pgrep and never started; replaced with direct sequential runs. The Mac restarted mid-drift-run and lost 50 minutes of work, so drift_revised now saves a partial file after every group and resumes, and runs under caffeinate.
+
+**Clean-up:** docs/, data/, experiments/{revision,initial_analysis}, results/{revised,initial_analysis}, paper/{current,icacs_2026,templates}, apps/, archive/. All paths updated and tested; licensed data excluded by .gitignore and verified absent from all of git history before the public push.
+
+**Plain language:** the official data confirmed the corrected story and sharpened it: what decides whether a detector is usable is mostly whether its alarm threshold survives drifting chemical sensors, not how well it ranks attacks. The paper is now final apart from a human read-through, and the code is public.
