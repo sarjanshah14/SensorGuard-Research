@@ -89,7 +89,9 @@ def title_block(title_xml):
             + para("phmemail", run("abhi.shah@ljku.edu.in")))
 
 
-def postprocess(xml, tpl_xml):
+def postprocess(xml, tpl_xml, refs=""):
+    """refs: header/footer references (template's small-caps journal header from page 2,
+    page-number footer, first-page journal/ISSN footer)."""
     xml = re.sub(r'"\s+/>', '"/>', xml)  # pandoc writes <w:x a="b" />
     # IJPHM: table captions go below the table
     xml = re.sub(r'(<w:p>(?:(?!<w:p>).)*?<w:pStyle w:val="TableCaption"/>.*?</w:p>)\s*(<w:tbl>.*?</w:tbl>)',
@@ -123,15 +125,15 @@ def postprocess(xml, tpl_xml):
 
     # section layout from the template: one-column title/abstract, then two columns
     pg = re.search(r"<w:pgSz [^>]*/>", tpl_xml).group(0) + re.search(r"<w:pgMar [^>]*/>", tpl_xml).group(0)
-    one_col = f'<w:sectPr><w:type w:val="continuous"/>{pg}<w:cols w:space="720"/></w:sectPr>'
+    one_col = f'<w:sectPr>{refs}<w:type w:val="continuous"/>{pg}<w:cols w:space="720"/><w:titlePg/></w:sectPr>'
     kw = re.search(r'<w:p>(?:(?!<w:p>).)*?Keywords:.*?</w:p>', xml, re.S).group(0)
     licence = para("phmnormal", run(LICENCE, italic=True, size=16), one_col)
     xml = xml.replace(kw, kw + licence, 1)
-    two_col = f'<w:sectPr><w:type w:val="continuous"/>{pg}<w:cols w:num="2" w:space="360"/></w:sectPr>'
+    two_col = f'<w:sectPr>{refs}<w:type w:val="continuous"/>{pg}<w:cols w:num="2" w:space="360"/><w:titlePg/></w:sectPr>'
     marker = re.search(r'<w:p>(?:(?!<w:p>).)*?FLOATSMARKER.*?</w:p>', xml, re.S).group(0)
     xml = xml.replace(marker, f'<w:p><w:pPr>{two_col}</w:pPr></w:p>', 1)   # body ends two-column
     j = xml.rfind("<w:sectPr")  # final section: tables and figures, one column
-    xml = xml[:j] + f'<w:sectPr><w:type w:val="nextPage"/>{pg}<w:cols w:space="720"/></w:sectPr></w:body></w:document>'
+    xml = xml[:j] + f'<w:sectPr>{refs}<w:type w:val="nextPage"/>{pg}<w:cols w:space="720"/></w:sectPr></w:body></w:document>'
 
     # caption labels: pandoc numbers \ref targets but writes captions without "Table n."
     n = {"Table": 0, "Figure": 0}
@@ -204,11 +206,18 @@ def main():
                                                      capture_output=True, check=True).stdout)
         with zipfile.ZipFile(td / "ref.docx") as z:
             pandoc_styles = z.read("word/styles.xml").decode()
+        with zipfile.ZipFile(raw) as z:
+            rels = dict((t, i) for i, t in re.findall(r'Id="(\w+)" Target="((?:header|footer)\d\.xml)"', z.read("word/_rels/document.xml.rels").decode()))
+        refs = (f'<w:headerReference w:type="default" r:id="{rels["header1.xml"]}"/>'
+                f'<w:footerReference w:type="default" r:id="{rels["footer1.xml"]}"/>'
+                f'<w:footerReference w:type="first" r:id="{rels["footer2.xml"]}"/>')
         with zipfile.ZipFile(raw) as zin, zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
                 data = zin.read(item.filename)
                 if item.filename == "word/document.xml":
-                    data = postprocess(data.decode(), tpl_xml).encode()
+                    data = postprocess(data.decode(), tpl_xml, refs).encode()
+                if item.filename == "word/footer2.xml":
+                    data = data.replace(b"2012", b"2026")  # year; "***" is the paper number, set after acceptance
                 if item.filename == "word/styles.xml":
                     data = add_missing_styles(data.decode(), pandoc_styles).encode()
                 zout.writestr(item, data)

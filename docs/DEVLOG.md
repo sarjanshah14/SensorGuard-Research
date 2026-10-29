@@ -1337,3 +1337,5 @@ local compile, because this machine has no LaTeX installed.
 **WADI timing check:** the time column holds only mm:ss. The Row counter and per-day counts (86,400 per full day) show the attack file is gap-free at 1 Hz; the normal file has one 264,000-row gap (29 Sep to 2 Oct, about 73 h) removed in the release, inside the training part. Stated in the Datasets section.
 
 **Plain language:** the research did not change. The Word file now shows every number in proper tables (the earlier "missing" numbers were a conversion bug), and the text now claims exactly what the evidence supports, no more.
+
+**Addendum (guidelines check):** the IJPHM author guidelines require the small-caps journal header from page 2 and the first-author licence note. Rebuilding the section breaks had dropped the template's header/footer references; they are now on every section, with a distinct first page (journal/ISSN/year footer, no header). LibreOffice needed the distinct-first-page flag on the two-column body section as well, as in the template. Plain language: the file now looks like an IJPHM paper on every page.
