@@ -436,7 +436,10 @@ Found the SWaT split error, inconsistent thresholds, label-using drift retrainin
 ### [x] R4. Rewrite paper (`paper/paper2_revised.tex`), change log, final assessment, venue strategy
 ### [x] R5. Rerun on official SWaT (iTrust) + WADI A2 — done 2026-10-30
 ### [x] R6. Prof. Shah approved framing; IJPHM Word manuscript built; code public on GitHub
+### [x] R6b. Second external review addressed (readable tables, reconciled numbers; PDF render checked)
+
 ### [ ] R7. Submit to IJPHM (+ arXiv preprint)
+Depends on: Sarjan opening the .docx in Word for a last look and Prof. Shah's read-through.
 
 ---
 

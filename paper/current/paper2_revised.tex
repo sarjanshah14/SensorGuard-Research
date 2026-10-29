@@ -40,22 +40,24 @@ block-bootstrap confidence intervals on four benchmarks: SKAB (pump and valve
 testbed), SWaT and WADI (water treatment and distribution, official iTrust releases)
 and HAI (turbine, boiler and water-treatment hardware-in-the-loop testbed). On SWaT,
 all ten detectors rank attacks equally well (AUROC $0.81$--$0.86$, overlapping
-intervals); on SKAB with pooled training none is reliably better than chance, while
+intervals); on SKAB with pooled training all detectors are close to chance (best AUROC
+$0.575$, CI $0.504$--$0.645$) and none is distinguishable from the next best, while
 SKAB's per-run protocol yields run-level AUROC up to $0.79$ and an inverted ranking;
 on HAI, PCA reconstruction and LOF lead ($0.93$, $0.92$) and Elliptic Envelope trails
 ($0.66$). Protocol choices moved MCC by up to $0.8$ for the same detector. Thresholds
 set only from normal data failed wherever chemical analysers drifted between the
-normal and the attack recordings: on SWaT and WADI, distance- and reconstruction-based
-detectors raised alarms on 42--75\% of normal readings, while detectors that score each
-sensor's rarity separately stayed below 12\%. Adding one drifting analyser (AIT201,
+normal and the attack recordings: on SWaT, the $z$-score, One-Class SVM, LOF, PCA
+reconstruction and the LSTM autoencoder raised alarms on 42--75\% of normal readings (on
+WADI, these and Elliptic Envelope on about 56\%), while COPOD, ECOD, HBOS and Isolation
+Forest stayed below 12\% on SWaT and 1.4\% on WADI. Adding one drifting analyser (AIT201,
 missing from a public re-upload of SWaT) raised the $z$-score's false-alarm rate from
 1.4\% to 42\%; removing three drifting analysers from WADI cut false alarms from 56\%
 to about 1\%. In a streaming
 simulation, SWaT's normal operation drifted enough to raise a static Isolation
 Forest's false-alarm rate from 10\% to 86\%; retraining restored detection only when
-retraining data were known to be normal; a drift trigger saved some refits relative to
-a schedule but its checks cost more than refitting every hour; and label-free
-retraining failed. Single-reading
+retraining data were known to be normal; in this single stream, a drift trigger saved
+some refits relative to a schedule but its checks cost more than refitting every hour; and
+label-free retraining failed. Single-reading
 cost in a one-CPU, 1\,GB container ranged from microseconds to about 700\,ms. The
 results argue for choosing detectors by threshold stability and retraining needs and
 for reporting protocols in enough detail to tell which of these a benchmark number
@@ -241,8 +243,12 @@ November 2019) provides a 14-day normal run (784{,}571 rows, 25 September--7 Oct
 2017) and a two-day attack file (172{,}803 rows, 9--11 October) in which 9{,}977 rows
 (5.8\%) belong to 14 attacks. Four columns are empty in both files and are dropped; the
 first 21{,}600 normal rows are removed as for SWaT; the 67 points with more than ten
-distinct values in the training rows are used. The file's time column is malformed, so
-rows are indexed by their 1\,Hz order.
+distinct values in the training rows are used. The time column stores only minutes and
+seconds, so rows are indexed by their order; the row counter and the per-day row counts
+(86{,}400 on every complete day) confirm gap-free 1\,Hz sampling in the attack file. The
+normal file has one gap of 264{,}000 rows (about 73 hours, 29 September to 2 October)
+removed in the release; it lies in the training portion, so only the few rolling windows
+that straddle it join non-adjacent readings.
 
 \paragraph{HAI.} HAI (version 21.03) comes from a hardware-in-the-loop testbed in
 which a steam-turbine process, a boiler process and a water-treatment process are
@@ -378,9 +384,15 @@ worse in precision on SWaT ($\pi{=}0.121$) than on a test set built with
 $\pi{=}0.315$, as in the initial analysis.
 Test rows are strongly autocorrelated, so 95\% confidence intervals are
 obtained by resampling whole blocks with replacement: the 34 test files on SKAB
-and non-overlapping one-hour blocks on SWaT. The same resamples are used for
-every detector, so paired differences are valid. Isolation Forest is repeated
-over ten seeds and the LSTM autoencoder over three seeds on SKAB.
+and non-overlapping one-hour blocks on SWaT, WADI and HAI. The same resamples are used for
+every detector, so paired differences are valid. Tables report a single fitted model
+(seed 0), and the intervals resample test blocks for that model, so they reflect test-set
+variability only, not training randomness. Training randomness is reported separately:
+Isolation Forest is repeated over ten seeds on every benchmark and the LSTM autoencoder
+over three seeds on SKAB. Overlapping intervals are not treated as a test; a claim that two
+detectors are indistinguishable rests on the paired bootstrap difference between them,
+computed on the same resamples, having a 95\% interval that includes zero. Paired
+differences were computed for the two highest-AUROC detectors on each benchmark.
 
 \subsection{Drift and retraining}
 The retraining study simulates deployment on SWaT. An initial model is fitted
@@ -392,9 +404,14 @@ retraining. Four policies are compared: \emph{static} (never retrain);
 statistic between the batch and the current reference,
 $\bar D=\frac{1}{d}\sum_{j=1}^{d}\sup_x\left|F^{\mathrm{ref}}_j(x)-F^{\mathrm{win}}_j(x)\right|$
 \citep{massey1951}, exceeds the 95th percentile of its within-initial-window
-values); \emph{periodic} (the same number of retrains as the triggered policy,
-evenly spaced); and \emph{always} (after every batch). Each retrain uses the
-last five batches, with rows selected in one of three ways: \emph{oracle}
+values); and \emph{periodic}, with a retrain attempt every $P$ batches for
+$P\in\{1,2,3,4,6,12,24,48\}$, where $P{=}1$ retrains after every batch. The periodic
+sweep traces detection skill against retraining budget, and the triggered policy is
+compared with that curve at its own number of successful refits. An \emph{attempt} is a
+batch on which a policy fires; it becomes a \emph{refit} only if the selected rows of the
+window exceed 1{,}000, otherwise the current model is kept. For every run the number of
+attempts, the number of refits, and the CPU time spent on refits and on drift checks are
+recorded. Each retrain uses the last five batches, with rows selected in one of three ways: \emph{oracle}
 (ground-truth normal rows, as in the initial analysis), \emph{predicted-normal}
 (rows the current model did not flag) or \emph{all} rows. After every fit the
 threshold is the 99th percentile of the fit-window scores. Isolation Forest and
@@ -426,10 +443,12 @@ represented, so latencies are lower bounds.
 \subsection{SKAB under the pooled protocol}
 Table~\ref{tab:skab} and Fig.~\ref{fig:auroc} (left) report SKAB under the pooled
 protocol. Every detector is close to chance. The highest AUROC is Isolation
-Forest's $0.575$ ($95\%$ CI $0.504$--$0.645$; mean $0.575\pm0.018$ over ten seeds),
-and its CI barely excludes $0.5$; the CIs of the top five detectors overlap, and
-the paired difference between the two best (Isolation Forest and COPOD) is
-$0.012$ (CI $-0.066$ to $0.092$). The LSTM autoencoder is below chance
+Forest's $0.575$ ($95\%$ CI $0.504$--$0.645$), and COPOD's interval ($0.507$--$0.621$)
+also excludes $0.5$; both do so narrowly, which is weak evidence of above-chance ranking.
+Over ten seeds Isolation Forest's AUROC is $0.575\pm0.018$ (range $0.550$--$0.603$), so
+its margin over chance depends on the seed as well as on the test files. No detector is
+shown to be better than the others: the paired difference between the two best (Isolation
+Forest and COPOD) is $0.012$ (CI $-0.066$ to $0.092$). The LSTM autoencoder is below chance
 (AUROC $0.442$, three seeds within $\pm0.001$). With a calibrated threshold the
 best MCC is $0.113$ (COPOD; CI $0.045$--$0.190$). The label-free rule gives MCC
 within $\pm0.05$ of zero for every detector: thresholds learned from normal
@@ -464,11 +483,12 @@ LSTM-AE & 0.442 [0.392, 0.500] & 0.267 & $-$0.075 & $-$0.078 [$-$0.165, $-$0.007
 \centering
 \includegraphics[width=\textwidth]{auroc_ci.png}
 \caption{AUROC with 95\% block-bootstrap confidence intervals (blocks: test files on
-SKAB, one-hour blocks on SWaT, WADI and HAI). Dashed line: chance. On SKAB (pooled) no
-detector is clearly above chance; on SWaT (official release) all ten are well above
-chance and statistically indistinguishable; on WADI only the per-feature detectors are
-above chance while three analysers drift; on HAI a leading group separates from HBOS and
-Elliptic Envelope.}
+SKAB, one-hour blocks on SWaT, WADI and HAI) for the seed-0 model; the intervals reflect
+test-block variability only. Dashed line: chance. On SKAB (pooled) all detectors are close
+to chance and only Isolation Forest's and COPOD's intervals exclude $0.5$, narrowly; on
+SWaT (official release) all ten are well above chance with overlapping intervals; on WADI
+only HBOS, Isolation Forest, COPOD and ECOD are above chance while three analysers drift;
+on HAI a leading group separates from HBOS and Elliptic Envelope.}
 \label{fig:auroc}
 \end{figure}
 
@@ -476,8 +496,8 @@ Elliptic Envelope.}
 Table~\ref{tab:swat} and Fig.~\ref{fig:auroc} report SWaT (official release, 25
 sensors). All ten detectors rank attack rows well (AUROC $0.811$--$0.856$) and their
 CIs overlap almost completely; the difference between the top two (ECOD and COPOD) is
-$0.007$ (CI $-0.003$ to $0.017$). Isolation Forest's AUROC over ten seeds is
-$0.819\pm0.005$. The LSTM autoencoder ranks attacks as well as the classical detectors
+$0.007$ (CI $-0.003$ to $0.017$). Isolation Forest's AUROC is $0.824$ for the seed-0
+model in the table and $0.819\pm0.005$ over ten seeds. The LSTM autoencoder ranks attacks as well as the classical detectors
 (AUROC $0.822$, AUPRC $0.731$).
 
 The detectors separate once a threshold is applied. With the label-free rule, which
@@ -501,8 +521,9 @@ $0.742$), but not for PCA reconstruction ($0.078$) or the LSTM autoencoder ($0.1
 \begin{table}[t]
 \centering\small
 \caption{SWaT, official release, standard protocol, 25 sensors (test: full attack
-period, 449{,}919 rows, 12.1\% attacks, 35 contiguous attack segments). AUROC and MCC
-with 95\% block-bootstrap CIs (one-hour blocks). LF: label-free threshold (99th
+period, 449{,}919 rows, 12.1\% attacks, 35 contiguous attack segments). Seed-0 models.
+AUROC and MCC with 95\% block-bootstrap CIs (one-hour blocks; test-block variability
+only). LF: label-free threshold (99th
 percentile of held-out normal-week scores); FAR: false-alarm rate on the attack
 period's normal rows; VM: validation-MCC threshold calibrated on the first third,
 scored on the last two thirds.}
@@ -532,7 +553,9 @@ reconstruction (AUROC $0.929$, CI $0.899$--$0.954$), LOF ($0.920$) and the LSTM
 autoencoder ($0.916$) lead, followed by One-Class SVM and the $z$-score ($0.895$);
 the difference between the top two is $0.008$ (CI $-0.009$ to $0.025$). HBOS
 ($0.728$) and Elliptic Envelope ($0.663$, CI $0.608$--$0.716$) are clearly worse,
-and Isolation Forest sits in between ($0.837$; $0.815\pm0.009$ over ten seeds).
+and Isolation Forest sits in between ($0.837$ for the seed-0 model in the table,
+$0.815\pm0.009$ over ten seeds; the seed-to-seed spread is of the same order as its gap
+to COPOD and ECOD).
 Label-free thresholds transfer well on HAI: held-out normal data from the training
 period predicted the test-period false-alarm rate closely (0.4--1.6\% for every
 classical detector against a 1\% target; 9.1\% for the LSTM autoencoder), and the
@@ -549,7 +572,8 @@ the SWaT kind occurs and thresholds transfer; Elliptic Envelope trails on both.
 \begin{table}[t]
 \centering\small
 \caption{HAI 21.03 (test: five files, 402{,}005 rows, 2.2\% attacks, 50 attacks).
-AUROC and label-free MCC with 95\% block-bootstrap CIs (one-hour blocks). FAR:
+Seed-0 models. AUROC and label-free MCC with 95\% block-bootstrap CIs (one-hour blocks;
+test-block variability only). FAR:
 false-alarm rate on normal test rows; VM: validation-MCC threshold calibrated on test
 file 1, scored on files 2--5.}
 \label{tab:hai}
@@ -575,7 +599,8 @@ Elliptic Envelope & 0.663 [0.608, 0.716] & 0.114 & 0.179 [0.119, 0.248] & 0.007 
 \label{sec:wadi}
 WADI is the hardest benchmark (Table~\ref{tab:wadi}). With all 67 points, the
 per-feature detectors lead (HBOS AUROC $0.741$, Isolation Forest $0.720$, COPOD and ECOD
-$0.71$; Isolation Forest $0.725\pm0.016$ over ten seeds), while the $z$-score, One-Class
+$0.71$; Isolation Forest $0.725\pm0.016$ over ten seeds; the difference between HBOS and
+Isolation Forest is $0.021$, CI $-0.018$ to $0.063$), while the $z$-score, One-Class
 SVM, LOF, PCA reconstruction, Elliptic Envelope and the LSTM autoencoder are at chance
 (AUROC $0.46$--$0.52$). These six detectors raise alarms on 55.8--56.1\% of the attack
 file's normal rows under the label-free rule, and the near-identical rate points to a
@@ -584,8 +609,13 @@ those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Repeating the exp
 without these three analysers removes the effect: every detector's label-free false-alarm
 rate falls to 0.6--1.4\%, AUROC moves into a common band of $0.650$--$0.748$ with
 overlapping CIs, and label-free MCC reaches $0.351$ for the LSTM autoencoder and
-$0.18$--$0.23$ for LOF, the $z$-score, PCA reconstruction and One-Class SVM. Absolute
-performance on WADI remains low, as other studies also find.
+$0.18$--$0.23$ for LOF, the $z$-score, PCA reconstruction and One-Class SVM. This
+ablation is a post-hoc diagnostic: the three analysers were chosen after inspecting their
+ranges in the attack file, so it shows that the sensor set can decide whether thresholds
+transfer, but it is not a procedure that a deployment could apply in advance. A label-free
+version would compare recent sensor ranges with the training ranges and exclude or
+down-weight drifting channels; that was not evaluated. Absolute performance on WADI remains
+low, as other studies also find.
 
 \begin{table}[t]
 \centering\small
@@ -734,8 +764,11 @@ ground-truth labels (as in the initial analysis), Isolation Forest's skill over 
 period rises steadily with the number of refits: MCC $0.165$ static (75\% of the attack
 period's normal rows flagged), $0.288$ with 5 refits, $0.404$ with 40, $0.478$ with 80,
 $0.502$ with 120 and $0.567$ when refitting after every batch (239). The KS-triggered policy
-reached $0.549$ with 89 refits (94 attempts), well above the periodic curve at that budget
-and close to refitting after every batch, so triggering does save refits. For the Elliptic
+reached $0.549$ with 89 refits (94 attempts), above the periodic curve at that budget
+($0.478$ with 80 refits, $0.502$ with 120) and close to refitting after every batch, so in
+this stream triggering saved refits. Because the stream is a single realisation, this
+comparison has no confidence interval and does not establish that the trigger is better in
+general. For the Elliptic
 Envelope, no budget changes the outcome: MCC $0.705$--$0.732$ at every periodic budget and
 $0.709$ for the KS policy, against $0.724$ for the static model.
 
@@ -768,19 +801,20 @@ Envelope, which in this stream did not need retraining at all.
 \caption{Retraining budget on SWaT (official release, 25 sensors): MCC over the attack
 period (point-wise) for each detector and retraining-data selection, at every periodic
 budget $P$ (refit attempt every $P$ hourly batches; 244 batches in total) and for the
-KS-triggered policy. The number in brackets is the number of successful refits. Static:
+KS-triggered policy. The number in brackets is the number of successful refits. Single
+stream, so no confidence intervals. Static:
 Isolation Forest $0.165$, Elliptic Envelope $0.724$.}
 \label{tab:drift}
-\begin{tabular}{llcccccccc}
+\begin{tabular}{lllllllllll}
 \toprule
- & Selection & $P{=}1$ & $P{=}2$ & $P{=}3$ & $P{=}6$ & $P{=}12$ & $P{=}24$ & $P{=}48$ & KS \\
+ & Selection & $P{=}1$ & $P{=}2$ & $P{=}3$ & $P{=}4$ & $P{=}6$ & $P{=}12$ & $P{=}24$ & $P{=}48$ & KS \\
 \midrule
-IF & oracle & 0.567 (239) & 0.502 (120) & 0.478 (80) & 0.404 (40) & 0.349 (20) & 0.297 (10) & 0.288 (5) & 0.549 (89) \\
- & pred.-normal & 0.004 (95) & 0.000 (12) & 0.000 (14) & 0.000 (7) & 0.000 (3) & 0.008 (2) & 0.069 (3) & 0.000 (24) \\
- & all rows & 0.206 (244) & 0.149 (122) & 0.255 (81) & 0.138 (40) & 0.292 (20) & 0.221 (10) & 0.153 (5) & 0.188 (92) \\
-EE & oracle & 0.705 (239) & 0.706 (120) & 0.716 (80) & 0.722 (40) & 0.727 (20) & 0.724 (10) & 0.732 (5) & 0.709 (89) \\
- & pred.-normal & 0.719 (239) & 0.724 (120) & 0.704 (79) & 0.703 (39) & 0.723 (20) & 0.746 (10) & 0.749 (5) & 0.703 (89) \\
- & all rows & 0.329 (244) & 0.405 (122) & 0.420 (81) & 0.422 (40) & 0.718 (20) & 0.697 (10) & 0.678 (5) & 0.334 (92) \\
+IF & oracle & 0.567 (239) & 0.502 (120) & 0.478 (80) & 0.436 (60) & 0.404 (40) & 0.349 (20) & 0.297 (10) & 0.288 (5) & 0.549 (89) \\
+ & pred.-normal & 0.004 (95) & 0.000 (12) & 0.000 (14) & 0.000 (10) & 0.000 (7) & 0.000 (3) & 0.008 (2) & 0.069 (3) & 0.000 (24) \\
+ & all rows & 0.206 (244) & 0.149 (122) & 0.255 (81) & 0.084 (61) & 0.138 (40) & 0.292 (20) & 0.221 (10) & 0.153 (5) & 0.188 (92) \\
+EE & oracle & 0.705 (239) & 0.706 (120) & 0.716 (80) & 0.715 (60) & 0.722 (40) & 0.727 (20) & 0.724 (10) & 0.732 (5) & 0.709 (89) \\
+ & pred.-normal & 0.719 (239) & 0.724 (120) & 0.704 (79) & 0.724 (60) & 0.703 (39) & 0.723 (20) & 0.746 (10) & 0.749 (5) & 0.703 (89) \\
+ & all rows & 0.329 (244) & 0.405 (122) & 0.420 (81) & 0.530 (61) & 0.422 (40) & 0.718 (20) & 0.697 (10) & 0.678 (5) & 0.334 (92) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -809,7 +843,7 @@ fragile in deployment, a property a single benchmark number hides.
 \label{sec:edge}
 
 Table~\ref{tab:edge} and Fig.~\ref{fig:edge} report the cost of each detector
-fitted on SWaT-shaped data (120 features; 50{,}000 normal rows) inside the
+fitted on SWaT-shaped data inside the
 one-CPU, 1\,GB ARM64 container. Single-reading latency spans more than five orders of
 magnitude. The $z$-score scores a reading in $0.002$\,ms; PCA reconstruction, HBOS,
 Elliptic Envelope and One-Class SVM take $0.05$--$0.16$\,ms; LOF $0.89$\,ms;
@@ -817,13 +851,15 @@ Isolation Forest $2.3$\,ms, dominated by per-call overhead across its 100 trees,
 since its batch throughput is about $850{,}000$ rows/s. ECOD and COPOD, as
 implemented in PyOD, keep their training data and rescore against it on every
 call: $698$ and $739$\,ms per reading and $235$\,MB models. Above a baseline of
-about $444$\,MB (Python, libraries and data), the detectors themselves needed
-$71$--$228$\,MB, except ECOD and COPOD ($516$ and $527$\,MB). The container's memory
+about $444$\,MB (Python, libraries and data), peak resident memory rose by
+$71$--$228$\,MB while fitting and scoring, except for ECOD and COPOD ($516$ and
+$527$\,MB); this increase includes transient scoring buffers as well as the stored
+model. The container's memory
 use reached its 1\,GB limit only during the ECOD and COPOD runs: the kernel recorded
 3{,}127 reclaim events at the limit and no out-of-memory kills, so the cap was
 enforced and both completed. On SKAB-shaped data (40 features) the pattern is the
 same at smaller scale (Isolation Forest $2.3$\,ms; ECOD and COPOD $118$--$125$\,ms,
-39\,MB models, about $260$\,MB model memory). The LSTM autoencoder takes $0.78$\,ms
+39\,MB models, about $260$\,MB peak increase). The LSTM autoencoder takes $0.78$\,ms
 per 30-second window with 58k parameters, but needs a deep-learning runtime (peak
 process memory $335$\,MB for inference alone). Recomputing the rolling features for
 one new reading from a 30-row buffer with the pipeline's pandas code costs
@@ -837,23 +873,26 @@ resident set includes pages shared with its parent; it is not used here.)
 \centering\small
 \caption{Cost per detector in a Docker container capped at one CPU and 1\,GB RAM
 (linux/arm64 on an Apple M4 host; single BLAS thread; one spawned process per
-detector). SWaT-shaped input, 120 features, 50{,}000 training rows. Latency: one
-reading per call, 1{,}000 calls after warm-up. Model memory: peak resident-memory
-increase above the 444\,MB baseline during fitting and scoring.}
+detector). Input: 50{,}000 normal training rows of the public re-upload's 24 SWaT sensors
+(120 features), not the 25-sensor official set (125 features) used elsewhere. Latency: one
+reading per call, 1{,}000 calls after warm-up (median, 95th and 99th percentiles). Peak RSS
+increase: peak resident memory above the measured baseline of about 444\,MB, during fitting
+and scoring, read from the kernel's high-water mark reset after loading; it includes
+transient scoring buffers.}
 \label{tab:edge}
-\begin{tabular}{lrrrrrrr}
+\begin{tabular}{lrrrrrrrr}
 \toprule
-Detector & Fit (s) & Load (ms) & p50 (ms) & p95 (ms) & Batch rows/s & Size (KB) & Model mem.\ (MB) \\
+Detector & Fit (s) & Load (ms) & p50 (ms) & p95 (ms) & p99 (ms) & Batch rows/s & Size (KB) & Peak RSS increase (MB) \\
 \midrule
-$z$-score & 0.006 & 0.12 & 0.002 & 0.002 & 7{,}188{,}644 & 2 & 107 \\
-HBOS & 1.10 & 0.24 & 0.050 & 0.053 & 812{,}430 & 802 & 164 \\
-PCA-recon & 0.019 & 0.18 & 0.058 & 0.063 & 1{,}242{,}616 & 52 & 71 \\
-Elliptic Envelope & 4.22 & 0.31 & 0.151 & 0.161 & 5{,}866{,}393 & 503 & 89 \\
-One-Class SVM & 3.10 & 2.78 & 0.158 & 0.172 & 10{,}049 & 1{,}942 & 228 \\
-LOF & 2.55 & 1.88 & 0.892 & 0.934 & 7{,}745 & 22{,}188 & 128 \\
-Isolation Forest & 0.072 & 7.46 & 2.255 & 2.353 & 853{,}367 & 1{,}149 & 85 \\
-ECOD & 0.83 & 196.5 & 698.2 & 956.7 & 8{,}960 & 235{,}157 & 516 \\
-COPOD & 1.11 & 222.6 & 739.3 & 833.9 & 11{,}203 & 235{,}157 & 527 \\
+$z$-score & 0.006 & 0.12 & 0.002 & 0.002 & 0.002 & 7{,}188{,}644 & 2 & 107 \\
+HBOS & 1.10 & 0.24 & 0.050 & 0.053 & 0.070 & 812{,}430 & 802 & 164 \\
+PCA-recon & 0.019 & 0.18 & 0.058 & 0.063 & 0.072 & 1{,}242{,}616 & 52 & 71 \\
+Elliptic Envelope & 4.22 & 0.31 & 0.151 & 0.161 & 0.187 & 5{,}866{,}393 & 503 & 89 \\
+One-Class SVM & 3.10 & 2.78 & 0.158 & 0.172 & 0.232 & 10{,}049 & 1{,}942 & 228 \\
+LOF & 2.55 & 1.88 & 0.892 & 0.934 & 0.978 & 7{,}745 & 22{,}188 & 128 \\
+Isolation Forest & 0.072 & 7.46 & 2.255 & 2.353 & 2.431 & 853{,}367 & 1{,}149 & 85 \\
+ECOD & 0.83 & 196.5 & 698.2 & 956.7 & 1{,}117.1 & 8{,}960 & 235{,}157 & 516 \\
+COPOD & 1.11 & 222.6 & 739.3 & 833.9 & 880.7 & 11{,}203 & 235{,}157 & 527 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -885,7 +924,7 @@ Sensor set & Adding one drifting SWaT analyser (AIT201): $z$-score false alarms 
 Training/test split & SWaT re-upload layout vs standard split: AUROC $0.84$--$0.93$ vs $0.83$--$0.86$; HBOS first vs last. SKAB pooled vs per-run: chance-level vs run AUROC up to $0.79$, ranking inverted & State the time span and source of training and test data; use a benchmark's reference protocol \\
 Threshold rule & Shared contamination vs per-model calibration: $z$-score MCC $0.18$ vs $0.84$. Label-free vs label-calibrated on SWaT: $z$-score MCC $0.22$ vs $0.82$, One-Class SVM $0.18$ vs $0.82$ & Report a label-free threshold as the deployable result; treat label-calibrated results as an optimistic reference \\
 Retraining data & Oracle labels: Isolation Forest MCC $0.17\to0.57$. Predicted-normal: collapse to flag-everything. All rows: attacks absorbed, MCC $\le0.30$ & Do not claim adaptation gains from label-selected retraining; vet retraining data or use slowly changing detectors \\
-Retraining trigger & KS trigger: $0.549$ with 89 refits vs periodic $0.478$ (80), $0.502$ (120), $0.567$ (239); KS checks $98$\,s vs every-batch refits $18$\,s & Compare triggers against a budget curve, including the cost of the check \\
+Retraining trigger & KS trigger: $0.549$ with 89 refits vs periodic $0.478$ (80), $0.502$ (120), $0.567$ (239); KS checks $98$\,s vs every-batch refits $18$\,s & Compare triggers against a budget curve, including the cost of the check; one stream only \\
 Cost measurement & Batch-averaged vs single-reading latency for Isolation Forest: $0.0019$ vs $2.3$\,ms; feature update $3.2$\,ms & Report single-reading latency and memory above a stated baseline \\
 \bottomrule
 \end{tabular}
@@ -893,8 +932,9 @@ Cost measurement & Batch-averaged vs single-reading latency for Isolation Forest
 
 \paragraph{Ranking quality is not the bottleneck; thresholds and sensors are.}
 On SWaT, ten detectors that span statistical, distance, density, tree, copula and
-recurrent families are statistically indistinguishable in AUROC, and on WADI they become
-so once three drifting analysers are removed. This agrees with large benchmark studies
+recurrent families lie within $0.045$ AUROC of each other with overlapping intervals (the
+paired difference between the top two includes zero), and on WADI they fall into a common
+band once three drifting analysers are removed. This agrees with large benchmark studies
 that find no consistent winner and strong simple baselines
 \citep{audibert2022,sarfraz2024}. What separates detectors in use is whether a threshold
 set on normal data still works later. On both water plants the decisive factor was the
@@ -947,17 +987,18 @@ speed.
 \item \textbf{Dataset versions.} SWaT and WADI results use the official iTrust releases
 (SWaT A1 \& A2, December 2015; WADI A2, 2019). Later SWaT and WADI campaigns, with
 different attacks and plant configurations, were not evaluated. The drift study and the
-cost benchmark used SWaT; the cost benchmark used the re-upload's 24 sensors, which does
-not affect timing materially.
+cost benchmark used SWaT; the cost benchmark used the re-upload's 24 sensors (120 features rather than 125), which is
+not expected to change timing materially.
 \item \textbf{Process coverage.} SKAB and SWaT are water processes; HAI adds
 turbine and boiler processes but through a hardware-in-the-loop simulator. Rotating
 machinery under real wear, electrical faults and naturally occurring (rather than
-induced or scripted) anomalies are not covered; WADI \citep{ahmed2017} and run-to-failure
-machinery data are natural next steps. The drift and cost studies were run on SWaT
+induced or scripted) anomalies are not covered; run-to-failure machinery data are a natural
+next step. The drift and cost studies were run on SWaT
 only.
 \item \textbf{Detector configurations.} Hyperparameters other than thresholds were
 fixed at common defaults; One-Class SVM and LOF were trained on a 20{,}000-row
-subsample on SWaT and HAI, and ECOD and COPOD on a 100{,}000-row subsample on HAI; the LSTM autoencoder is small and was run with one seed on
+subsample on SWaT, WADI and HAI, and ECOD and COPOD on a 100{,}000-row subsample on WADI
+and HAI; the LSTM autoencoder is small and was run with one seed on
 SWaT. Larger or tuned deep models were not tested.
 \item \textbf{Metrics.} Event recall and median delay are reported, but
 range-aware metrics such as VUS-PR \citep{paparrizos2022} were not computed.
@@ -965,11 +1006,12 @@ Bootstrap blocks (files, hours) reduce but do not remove dependence between bloc
 \item \textbf{Drift design.} One stream, one window length (five hours), one KS
 threshold rule and two detectors were studied; ADWIN-style detectors and threshold-only
 adaptation were not compared. Policies are compared without confidence intervals
-because the stream is a single realisation.
+because the stream is a single realisation; the trigger-versus-schedule comparison holds
+for this stream and these settings only.
 \item \textbf{Resource measurements.} A Docker container capped at one CPU and
 1\,GB on an Apple M4 host is not a physical edge device: slower cores, thermal
-limits and real I/O are absent, so latencies are lower bounds. Model memory is the peak
-increase above a measured baseline and includes transient scoring buffers. Energy was not measured.
+limits and real I/O are absent, so latencies are lower bounds. Memory is reported as the
+peak RSS increase above a measured baseline and includes transient scoring buffers. Energy was not measured.
 \item \textbf{SKAB protocols.} The SKAB reference protocol trains on rows of which
 2.1\% are labelled anomalous, and its label-free threshold is set from each
 run's own training scores; results are not directly comparable with the SKAB
@@ -987,8 +1029,8 @@ documented, standard protocols answered the four research questions as follows.
 (RQ1) On SWaT the detectors rank attacks equally well (AUROC $0.81$--$0.86$, overlapping
 intervals), and on WADI they do so once three drifting analysers are removed; on HAI
 they separate, with PCA reconstruction and LOF leading ($0.93$, $0.92$) and Elliptic
-Envelope trailing ($0.66$); on SKAB with pooled training, none is reliably better than
-chance. (RQ2) Protocol choices change the conclusions more than detector choice does:
+Envelope trailing ($0.66$); on SKAB with pooled training, all are close to chance and
+none is distinguishable from the next best. (RQ2) Protocol choices change the conclusions more than detector choice does:
 the SWaT split definition reorders the detectors, a shared contamination value had made
 the $z$-score look useless (MCC $0.18$ against $0.84$ with its own threshold), SKAB's
 per-run protocol inverts the pooled ranking, and a single analyser decides whether
@@ -996,8 +1038,8 @@ label-free thresholds survive (the $z$-score's false alarms $1.4\%$ without AIT2
 $42\%$ with it). With label-free thresholds on the official SWaT data, COPOD, Isolation
 Forest and HBOS were the most dependable (MCC $0.46$--$0.63$). (RQ3) Normal operation drifts enough to break a static Isolation
 Forest; retraining restores it only when the retraining data are known to be
-normal, drift-triggered retraining saved some refits but
-cost more in drift checks than it saved, and label-free retraining failed. (RQ4) Single-reading costs range from
+normal; in the single stream tested, drift-triggered retraining saved some refits but
+cost more in drift checks than it saved; and label-free retraining failed. (RQ4) Single-reading costs range from
 microseconds to about 700\,ms and model sizes from kilobytes to hundreds of megabytes
 under a one-CPU, 1\,GB cap; the per-reading feature update (3.2\,ms) costs more than
 most detectors.

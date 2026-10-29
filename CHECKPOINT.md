@@ -1,4 +1,4 @@
-# CHECKPOINT: resume here (last updated 2026-10-28)
+# CHECKPOINT: resume here (last updated 2026-10-30)
 
 Paste this to a fresh Claude session: "Read CHECKPOINT.md, CLAUDE.md, then continue."
 
@@ -9,6 +9,7 @@ Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference
 10 detectors × 4 datasets (SKAB, SWaT official, WADI A2 official, HAI 21.03).
 
 ## >>> CURRENT STAGE (read first) <<<
+- 2026-10-30 (session 28): second external review addressed. Word file rebuilt: tables readable, Table 9 numbers restored, captions labelled, 19 pages; checked in a LibreOffice PDF render (`paper/current/Shah_IJPHM_preview_LibreOffice.pdf`). SKAB/HAI/drift/resource text reconciled with the JSON results. Next: Sarjan opens the .docx in Word, reads it with Prof. Shah, submits.
 - 2026-10-30: folder reorganised (see README.md layout). Official SWaT (iTrust A1&A2 Dec 2015) and WADI A2 obtained and run. Kaggle SWaT copy matches official with the same 24 sensors (AUROC within 0.001); the 25th sensor AIT201 (missing from the copy) drifts and breaks z-score/OCSVM label-free thresholds (z FAR 1.4% -> 42%). WADI: 3 drifting analysers cause 56% false alarms for 6 detectors; removing them -> ~1%.
 - Paper: `paper/current/paper2_revised.tex`; Word: `paper/current/Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx` (`python paper/current/make_ijphm_docx.py`). 45 refs.
 - DONE 2026-10-30: drift study on official SWaT (`results/revised/drift_official.json`); paper drift section updated. Paper is FINAL pending Sarjan/Prof. Shah read-through. Code public at https://github.com/sarjanshah14/SensorGuard-Research (link in Data Availability).

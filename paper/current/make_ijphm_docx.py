@@ -36,13 +36,22 @@ def labels(src):
     return out
 
 
+# Inline maths becomes plain Unicode text: Word equation objects inside table
+# cells render blank in some viewers (reviewer saw empty nu, k, lr and arrows).
+MATH = [(r"\max_j |x_j-\mu_j|/\sigma_j", "maxⱼ |xⱼ − μⱼ| / σⱼ"), (r"\bar D", "D̄"), ("10^{-3}", "10⁻³"),
+        ("{=}", " = "), ("{,}", ","), (r"\pm", " ± "), (r"\to", " → "), (r"\le", "≤ "), (r"\approx", "≈"),
+        (r"\in", " ∈ "), (r"\{", "{"), (r"\}", "}"), (r"\,", " "), (r"\nu", "ν"), (r"\pi", "π"),
+        (r"\tau", "τ"), ("-", "−")]
+
+
 def plain_math(m):
-    t = m.group(1)
-    if t == "z":
-        return r"\emph{z}"
-    if re.fullmatch(r"[0-9.,\-+{} ]|\\pm|\\,|\\%", t) or re.fullmatch(r"(?:[0-9.,\-+{} ]|\\pm|\\,|\\%)+", t):
-        return t.replace("\\pm", " ± ").replace("{,}", ",").replace("\\,", " ").replace("{", "").replace("}", "").replace("-", "−")
-    return m.group(0)
+    t = m.group(1).replace(r"\%", "PCT")
+    for a, b in MATH:
+        t = t.replace(a, b)
+    if "\\" in t or "^" in t or "_" in t:
+        return m.group(0)  # real formula: leave to pandoc
+    t = re.sub(r"\s+", " ", t).strip()
+    return re.sub(r"(?<![A-Za-z])([A-Za-zπντ])(?![A-Za-z])", r"\\emph{\1}", t).replace("PCT", r"\%")
 
 
 def rewrite(src, lab):
@@ -124,7 +133,59 @@ def postprocess(xml, tpl_xml):
     j = xml.rfind("<w:sectPr")  # final section: tables and figures, one column
     xml = xml[:j] + f'<w:sectPr><w:type w:val="nextPage"/>{pg}<w:cols w:space="720"/></w:sectPr></w:body></w:document>'
 
-    return xml
+    # caption labels: pandoc numbers \ref targets but writes captions without "Table n."
+    n = {"Table": 0, "Figure": 0}
+    def label(m):
+        kind = "Table" if m.group(1) else "Figure"
+        n[kind] += 1
+        return m.group(0).replace("</w:pPr>", "<w:keepLines/></w:pPr>" + run(f"{kind} {n[kind]}. "), 1)
+    xml = re.sub(r'(</w:tbl>\s*)?<w:p><w:pPr><w:pStyle w:val="phmcaption"/>(?:(?!</w:pPr>).)*</w:pPr>', label, xml, flags=re.S)
+
+    w = int(re.search(r'<w:pgSz [^>]*w:w="(\d+)"', tpl_xml).group(1))
+    w -= sum(int(re.search(rf'<w:pgMar [^>]*w:{s}="(\d+)"', tpl_xml).group(1)) for s in ("left", "right"))
+    return re.sub(r"<w:tbl>.*?</w:tbl>", lambda m: fix_table(m.group(0), w), xml, flags=re.S)
+
+
+def add_missing_styles(styles, donor):
+    """The IJPHM template lacks pandoc's styles (Table, Compact, ...); without
+    them LibreOffice-based renderers dissolve every table into loose lines."""
+    found = lambda s: {m.group(1): m.group(0) for m in re.finditer(r'<w:style [^>]*w:styleId="([^"]+)".*?</w:style>', s, re.S)}
+    have, extra = found(styles), found(donor)
+    return styles.replace("</w:styles>", "".join(v for k, v in extra.items() if k not in have) + "</w:styles>")
+
+
+def _small(rpr_inner):
+    # w:sz must precede w:u / w:vertAlign in the rPr schema order
+    k = min([rpr_inner.find(t) for t in ("<w:u ", "<w:u/>", "<w:vertAlign") if t in rpr_inner] or [len(rpr_inner)])
+    return rpr_inner[:k] + '<w:sz w:val="16"/><w:szCs w:val="16"/>' + rpr_inner[k:]
+
+
+def fix_table(tbl, width):
+    """pandoc leaves tables auto-width with equal columns, which some renderers
+    squeeze into narrow strips. Give each a full-width fixed layout, columns
+    weighted by their longest cell, 8 pt text, rules above and below, rows that
+    do not split across pages."""
+    rows = re.findall(r"<w:tr>.*?</w:tr>", tbl, re.S)
+    lens = {}
+    for r in rows:
+        cells = re.findall(r"<w:tc>.*?</w:tc>", r, re.S)
+        if len(cells) != tbl.count("<w:gridCol "):
+            continue  # skip spanned header rows
+        for i, c in enumerate(cells):
+            lens[i] = max(lens.get(i, 0), len("".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", c))))
+    weights = [min(max(lens.get(i, 9), 9), 45) for i in range(tbl.count("<w:gridCol "))]
+    grid = "".join(f'<w:gridCol w:w="{round(width * x / sum(weights))}"/>' for x in weights)
+    tbl = re.sub(r"<w:tblGrid>.*?</w:tblGrid>", f"<w:tblGrid>{grid}</w:tblGrid>", tbl, flags=re.S)
+    rule = '<w:{} w:val="single" w:sz="6" w:space="0" w:color="000000"/>'
+    tbl = re.sub(r'<w:tblW [^>]*/>', f'<w:tblW w:type="dxa" w:w="{width}"/><w:jc w:val="center"/><w:tblBorders>'
+                 + rule.format("top") + rule.format("bottom") + rule.format("insideH").replace('w:sz="6"', 'w:sz="2"')
+                 + '</w:tblBorders><w:tblLayout w:type="fixed"/>', tbl, count=1)
+    tbl = re.sub(r"<w:tr>(?!<w:trPr>)", "<w:tr><w:trPr><w:cantSplit/></w:trPr>", tbl)
+    tbl = tbl.replace("<w:trPr><w:tblHeader", "<w:trPr><w:cantSplit/><w:tblHeader")
+    tbl = tbl.replace('<w:pStyle w:val="Compact"/>', '<w:pStyle w:val="Compact"/><w:keepNext/>')  # table stays with its caption
+    tbl = re.sub(r"<w:rPr>(.*?)</w:rPr>", lambda m: f"<w:rPr>{_small(m.group(1))}</w:rPr>", tbl, flags=re.S)
+    tbl = re.sub(r"<w:r>(?!<w:rPr>)", '<w:r><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr>', tbl)
+    return tbl
 
 
 def main():
@@ -139,11 +200,17 @@ def main():
                        check=True)
         with zipfile.ZipFile(TEMPLATE) as z:
             tpl_xml = z.read("word/document.xml").decode()
+        (td / "ref.docx").write_bytes(subprocess.run(["pandoc", "--print-default-data-file", "reference.docx"],
+                                                     capture_output=True, check=True).stdout)
+        with zipfile.ZipFile(td / "ref.docx") as z:
+            pandoc_styles = z.read("word/styles.xml").decode()
         with zipfile.ZipFile(raw) as zin, zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
                 data = zin.read(item.filename)
                 if item.filename == "word/document.xml":
                     data = postprocess(data.decode(), tpl_xml).encode()
+                if item.filename == "word/styles.xml":
+                    data = add_missing_styles(data.decode(), pandoc_styles).encode()
                 zout.writestr(item, data)
     print("wrote", OUT, "| citations resolved:", len(lab))
 
