@@ -1351,3 +1351,9 @@ local compile, because this machine has no LaTeX installed.
 **Found on the way:** the Word build takes figures from `overleaf_paper2/figures/` first, and those were older renders; they are now synced from `results/revised/figures/`.
 
 **Plain language:** the paper no longer claims more than the tests show, and the WADI preprocessing no longer glues together readings three days apart. The numbers barely moved.
+
+## Session 30 — 2026-10-30 — Fourth external review: detector-specific retraining claim, affiliation
+
+The abstract and the RQ3 answer said retraining helped "only when data were known to be normal" and that "label-free retraining failed". That holds for Isolation Forest but not for Elliptic Envelope (predicted-normal MCC 0.70-0.75; all-rows 0.33-0.53 only with 40+ refits). Both now name the detector. The affiliation, copied from the ICACS paper as "Lok Jagruti University, Vadodara", was corrected to "Lok Jagruti Kendra University, Ahmedabad" after Sarjan confirmed it. The footer's "2026 ***" stays: the paper number is assigned after acceptance.
+
+**Plain language:** the abstract no longer over-generalises one detector's failure, and the university name and city are right.

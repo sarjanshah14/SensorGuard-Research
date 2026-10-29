@@ -1,6 +1,6 @@
 # Protocol Sensitivity in Unsupervised Industrial Anomaly Detection
 
-Sarjan Shah and Prof. Abhi Shah, Department of Information Technology, Lok Jagruti University.
+Sarjan Shah and Prof. Abhi Shah, Department of Information Technology, Lok Jagruti Kendra University.
 
 Paper: *Protocol Sensitivity in Unsupervised Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost* (target: International Journal of Prognostics and Health Management, IJPHM).
 

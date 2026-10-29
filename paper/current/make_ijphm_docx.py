@@ -84,7 +84,7 @@ def run(text, sup=False, italic=False, size=None):
 def title_block(title_xml):
     return (title_xml.replace('w:val="Title"', 'w:val="phmtitle"')
             + para("phmauthorlist", run("Sarjan Shah") + run("1", sup=True) + run(" and Abhi Shah") + run("1", sup=True))
-            + para("phmaffiliation", run("1", sup=True) + run("Department of Information Technology, Lok Jagruti University, Vadodara, Gujarat, India"))
+            + para("phmaffiliation", run("1", sup=True) + run("Department of Information Technology, Lok Jagruti Kendra University, Ahmedabad, Gujarat, India"))
             + para("phmemail", run("shahsarjan968@gmail.com"))
             + para("phmemail", run("abhi.shah@ljku.edu.in")))
 

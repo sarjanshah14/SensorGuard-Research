@@ -18,7 +18,7 @@
 \title{Protocol Sensitivity in Unsupervised Industrial Anomaly Detection:
 Threshold Transfer, Retraining Risk, and Inference Cost}
 \author{Sarjan Shah \and Abhi Shah\\[2pt]
-\small Department of Information Technology, Lok Jagruti University, Vadodara, Gujarat, India\\
+\small Department of Information Technology, Lok Jagruti Kendra University, Ahmedabad, Gujarat, India\\
 \small \texttt{shahsarjan968@gmail.com}, \texttt{abhi.shah@ljku.edu.in}}
 \date{}
 
@@ -55,10 +55,12 @@ missing from a public re-upload of SWaT) raised the $z$-score's false-alarm rate
 1.4\% to 42\%; removing three drifting analysers from WADI cut false alarms from 56\%
 to about 1\%. In a streaming
 simulation, SWaT's normal operation drifted enough to raise a static Isolation
-Forest's false-alarm rate from 10\% to 86\%; retraining restored detection only when
-retraining data were known to be normal; in this single stream, a drift trigger saved
-some refits relative to a schedule but its checks cost more than refitting every hour; and
-label-free retraining failed. Single-reading
+Forest's false-alarm rate from 10\% to 86\%. In this simulation, retraining improved
+Isolation Forest when the retraining data were known to be normal, whereas label-free
+selection made it collapse or absorb attacks into its normal model; Elliptic Envelope was
+stable under predicted-normal selection, although frequent retraining on all recent rows
+degraded it. A drift trigger saved some refits relative to a schedule, but its checks cost
+more than refitting every hour. Single-reading
 cost in a one-CPU, 1\,GB container ranged from microseconds to about 700\,ms. The
 results argue for choosing detectors by threshold stability and retraining needs and
 for reporting protocols in enough detail to tell which of these a benchmark number
@@ -1042,10 +1044,12 @@ the $z$-score look useless (MCC $0.18$ against $0.84$ with its own threshold), S
 per-run protocol inverts the pooled ranking, and a single analyser decides whether
 label-free thresholds survive (the $z$-score's false alarms $1.4\%$ without AIT201,
 $42\%$ with it). With label-free thresholds on the official SWaT data, COPOD, Isolation
-Forest and HBOS were the most dependable (MCC $0.46$--$0.63$). (RQ3) Normal operation drifts enough to break a static Isolation
-Forest; retraining restores it only when the retraining data are known to be
-normal; in the single stream tested, drift-triggered retraining saved some refits but
-cost more in drift checks than it saved; and label-free retraining failed. (RQ4) Single-reading costs range from
+Forest and HBOS were the most dependable (MCC $0.46$--$0.63$). (RQ3) In the single stream tested, normal operation drifts enough to break a static
+Isolation Forest; retraining restores it only when the retraining data are known to be
+normal, and label-free selection makes it collapse or absorb the attacks, whereas
+Elliptic Envelope stays stable under predicted-normal selection and degrades only with
+frequent all-rows retraining; drift-triggered retraining saved some refits but cost more
+in drift checks than it saved. (RQ4) Single-reading costs range from
 microseconds to about 700\,ms and model sizes from kilobytes to hundreds of megabytes
 under a one-CPU, 1\,GB cap; the per-reading feature update (3.2\,ms) costs more than
 most detectors.

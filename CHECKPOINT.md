@@ -3,7 +3,7 @@
 Paste this to a fresh Claude session: "Read CHECKPOINT.md, CLAUDE.md, then continue."
 
 ## What this project is
-Paper by Sarjan Shah + Prof. Abhi Shah (Lok Jagruti University), revised after the
+Paper by Sarjan Shah + Prof. Abhi Shah (Lok Jagruti Kendra University), revised after the
 ICACS-2026 rejection and targeting IJPHM: "Protocol Sensitivity in Unsupervised
 Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost".
 10 detectors × 4 datasets (SKAB, SWaT official, WADI A2 official, HAI 21.03).
