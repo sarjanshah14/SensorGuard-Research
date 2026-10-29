@@ -38,9 +38,12 @@ source env/bin/activate
 python -m experiments.revision.common                    # metric self-check
 python -m experiments.revision.skab_revised              # ~2 min
 SWAT_SOURCE=official python -m experiments.revision.swat_revised   # ~15 min
+SWAT_SOURCE=official24 python -m experiments.revision.swat_revised # official, re-upload's 24 sensors
+python -m experiments.revision.swat_revised              # public Kaggle re-upload (set SWAT_DIR to its folder)
 SWAT_SOURCE=official python -m experiments.revision.drift_revised  # ~70 min
 python -m experiments.revision.hai_revised               # ~15 min
 python -m experiments.revision.wadi_revised              # ~20 min
+WADI_EXCLUDE=2B_AIT_002_PV,2A_AIT_004_PV,1_AIT_003_PV python -m experiments.revision.wadi_revised  # analyser ablation, ~20 min
 python -m experiments.revision.figures_revised
 python paper/current/make_ijphm_docx.py                  # IJPHM Word manuscript
 ```

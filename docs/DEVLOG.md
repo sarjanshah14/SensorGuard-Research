@@ -1363,3 +1363,9 @@ The abstract and the RQ3 answer said retraining helped "only when data were know
 Three wording/consistency corrections, no new experiments. (1) SKAB: only the top two were compared with a paired test, so "none is distinguishable from the next best" became "the paired comparison of the two highest-scoring did not establish a significant difference". (2) Latency: the abstract's "about 700 ms" contradicted Table 8 (COPOD p50 739 ms, ECOD p99 1,117 ms); abstract, discussion and RQ4 now say median up to about 740 ms with the 99th percentile up to 1.1 s. (3) Table 9's retraining row now separates Isolation Forest (oracle 0.17 -> 0.57; predicted-normal collapse, MCC <= 0.07; all rows MCC <= 0.30) from Elliptic Envelope (predicted-normal 0.70-0.75; all rows 0.33-0.53 with 40+ refits), all checked against drift_official.json. "Continuous retraining" (P = 1) is now "every-batch retraining". Abstract numbers re-checked against results JSON.
 
 **Plain language:** the summary statements now say exactly what each test and table shows.
+
+## Session 32 — 2026-10-30 — Sixth external review: repository and reference audit
+
+The review (8.0/10, "keep version 4 as master") asked only for checks. Repository: unauthenticated requests to the GitHub page, experiments/revision and results/revised return 200; the API lists all eight experiment scripts and all result JSONs; the repo is not private; git tracks no iTrust files. README now also lists the WADI analyser-ablation, SWAT_SOURCE=official24 and re-upload runs, so every reported table has a command. References: all 45 bibitems are cited and every citation resolves; one APA ordering error (Liu, Q. 2024 listed before Liu, F. T. 2008) was fixed. Length left at 19 pages; limitations (single stream, post-hoc WADI ablation, small LSTM) were already stated.
+
+**Plain language:** the code link works for anyone, every table can be regenerated from a listed command, and the reference list is in proper APA order.

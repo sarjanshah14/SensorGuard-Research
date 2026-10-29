@@ -2,6 +2,7 @@
 
 One line per session: what was done.
 
+- [2026-10-30] [session 32] Sixth external review (8.0/10, keep as master): verified repo public logged-out (experiments/revision, results/revised present; no licensed data tracked); reference audit (45/45 cited and resolved; fixed one APA order error, Liu F.T. 2008 before Liu Q. 2024); README gains WADI ablation, official24 and re-upload commands.
 - [2026-10-30] [session 31] Fifth external review (readiness 7.5/10): SKAB 'none distinguishable from next best' -> top-two paired test only (abstract, conclusion); latency range stated as median (to ~740 ms) with p99 up to 1.1 s (abstract, discussion, RQ4); Table 9 retraining row split into Isolation Forest vs Elliptic Envelope; 'continuous retraining' -> 'every-batch retraining'.
 - [2026-10-30] [session 30] Fourth external review (readiness 7/10): abstract and RQ3 retraining claim made detector-specific (IF needs label-clean data; EE stable under predicted-normal, degrades with frequent all-rows refits); affiliation corrected to Lok Jagruti Kendra University, Ahmedabad (confirmed by Sarjan).
 - [2026-10-30] [session 29] Third external review (readiness 7/10): SWaT 'all equal' claim softened everywhere (top-2 paired test only; equivalence of all ten not tested); WADI rerun with rolling features and LSTM windows restarted at the 73 h release gap (classical AUROC unchanged within 0.001; LSTM-AE without analysers 0.720->0.695, MCC 0.351->0.329, a training-set effect); WADI table regenerated from JSON; stale Overleaf figure copies synced.
