@@ -79,24 +79,24 @@ def fig_drift():
     axs[0].set_title("Static Isolation Forest, normal week", loc="left", color=INK)
     colors = {"oracle": BLUE, "pred_normal": ORANGE, "all": AQUA}
     labels = {"oracle": "true-normal rows (labels)", "pred_normal": "predicted-normal rows", "all": "all rows"}
-    pols = ["static", "ks", "periodic", "always"]
-    ylab = ["static", "KS-triggered", "periodic", "every batch"]
+    periods = sorted({int(k.split("|")[1][8:]) for k in dr["runs"] if "|periodic" in k})
     for ax, model, title in [(axs[1], "IsolationForest", "Isolation Forest"), (axs[2], "EllipticEnvelope", "Elliptic Envelope")]:
-        for i, pol in enumerate(pols):
-            if pol == "static":
-                v = dr["runs"][f"{model}|static"]
-                ax.plot(v["attack_period"]["mcc"], i, "o", color=MUTED, ms=7, mec="white", mew=1.2)
-                continue
-            for j, (sel, c) in enumerate(colors.items()):
-                v = dr["runs"][f"{model}|{pol}|{sel}"]
-                ax.plot(v["attack_period"]["mcc"], i + (j - 1) * 0.18, "o", color=c, ms=7, mec="white", mew=1.2,
-                        label=labels[sel] if (pol == "ks" and model == "IsolationForest") else None)
-        ax.set_yticks(range(len(pols)), ylab); ax.invert_yaxis(); ax.set_xlim(-0.05, 0.8)
-        ax.set_xlabel("MCC over the attack period"); ax.set_title(title, loc="left", color=INK)
-    axs[2].set_yticklabels([])
+        st = dr["runs"][f"{model}|static"]["attack_period"]["mcc"]
+        ax.axhline(st, color=MUTED, lw=1, ls="--")
+        ax.text(0.02, st + 0.015, "static", color=MUTED, fontsize=8, transform=ax.get_yaxis_transform())
+        for sel, c in colors.items():
+            pts = sorted((max(1, dr["runs"][f"{model}|periodic{P}|{sel}"]["retrains"]), dr["runs"][f"{model}|periodic{P}|{sel}"]["attack_period"]["mcc"]) for P in periods)
+            ax.plot([x for x, _ in pts], [y for _, y in pts], "-o", color=c, lw=2, ms=5, mec="white", mew=1,
+                    label=f"periodic, {labels[sel]}" if model == "IsolationForest" else None)
+            ks = dr["runs"][f"{model}|ks|{sel}"]
+            ax.plot(max(1, ks["retrains"]), ks["attack_period"]["mcc"], "*", color=c, ms=13, mec="white", mew=1,
+                    label=f"KS-triggered, {labels[sel]}" if model == "IsolationForest" else None)
+        ax.set_xscale("log"); ax.set_ylim(-0.05, 0.85)
+        ax.set_xlabel("successful refits (log scale)"); ax.set_ylabel("MCC over the attack period")
+        ax.set_title(title, loc="left", color=INK)
     h, l = axs[1].get_legend_handles_labels()
-    fig.legend(h, ["retrain on " + x for x in l], loc="lower center", ncol=3, frameon=False, fontsize=8, bbox_to_anchor=(0.62, -0.06))
-    fig.tight_layout(rect=(0, 0.06, 1, 1)); fig.savefig(f"{F}/drift_policies.png"); plt.close(fig)
+    fig.legend(h, l, loc="lower center", ncol=3, frameon=False, fontsize=8, bbox_to_anchor=(0.62, -0.1))
+    fig.tight_layout(rect=(0, 0.1, 1, 1)); fig.savefig(f"{F}/drift_policies.png"); plt.close(fig)
 
 
 def fig_edge():

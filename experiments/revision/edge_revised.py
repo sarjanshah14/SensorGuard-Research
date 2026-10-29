@@ -7,9 +7,13 @@ Run inside the capped container (see docker/Dockerfile.edge2):
       -e SWAT_DIR=/swat sensorguard-edge2
 -> results/revised/edge.json
 
-Per model, each in a fresh child process so peak RSS is per model:
+Per model, each in a fresh *spawned* process (a forked child's RSS also counts
+pages shared with its parent, which inflated the first version's numbers):
   fit time, serialized size, load time, single-reading latency (1,000 calls,
-  p50/p95/p99), batch throughput (rows/s), child peak RSS. Plus the per-reading
+  p50/p95/p99), batch throughput (rows/s), and memory as
+    base_rss_MB   : process RSS after imports + data loading,
+    model_peak_MB : peak RSS increase during fit + scoring (VmHWM reset after loading),
+  plus the container-wide peak (cgroup memory.peak) and OOM-kill count. Plus the per-reading
   cost of updating the rolling features from a 30-row buffer.
 """
 
@@ -64,11 +68,23 @@ def data(dataset):
     return sc.transform(Xtr), sc.transform(Xte)
 
 
+def vm(field):
+    for line in open("/proc/self/status"):
+        if line.startswith(field):
+            return int(line.split()[1]) / 1024  # kB -> MB
+    return float("nan")
+
+
 def bench(dataset, name, q):
     from threadpoolctl import threadpool_limits
     from experiments.revision.common import make_models
     with threadpool_limits(1):
         Xtr, Xte = data(dataset)
+        base = vm("VmRSS:")
+        try:
+            open("/proc/self/clear_refs", "w").write("5")  # reset VmHWM to current RSS
+        except OSError:
+            pass
         m = make_models(seed=0, cap=20000)[name]
         t = time.perf_counter(); m.fit(Xtr); fit_s = time.perf_counter() - t
         buf = io.BytesIO(); joblib.dump(m, buf); size_kb = buf.tell() / 1024
@@ -84,7 +100,7 @@ def bench(dataset, name, q):
            "latency_ms_p50": round(float(np.percentile(lat, 50)), 3),
            "latency_ms_p95": round(float(np.percentile(lat, 95)), 3),
            "latency_ms_p99": round(float(np.percentile(lat, 99)), 3),
-           "batch_rows_per_s": round(thr), "peak_rss_MB": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)})
+           "batch_rows_per_s": round(thr), "base_rss_MB": round(base, 1), "model_peak_MB": round(max(0.0, vm("VmHWM:") - base), 1)})
 
 
 def bench_deep(q):
@@ -116,9 +132,17 @@ def feature_update_cost():
     return {"latency_ms_p50": round(float(np.percentile(lat, 50)), 3), "latency_ms_p95": round(float(np.percentile(lat, 95)), 3)}
 
 
+def cgroup(name):
+    try:
+        return open(f"/sys/fs/cgroup/{name}").read().strip()
+    except OSError:
+        return None
+
+
 def child(fn, *args):
-    q = mp.Queue()
-    p = mp.Process(target=fn, args=(*args, q)); p.start()
+    ctx = mp.get_context("spawn")
+    q = ctx.Queue()
+    p = ctx.Process(target=fn, args=(*args, q)); p.start()
     items = []
     while p.is_alive() or not q.empty():
         try:
@@ -126,6 +150,8 @@ def child(fn, *args):
         except Exception:
             pass
     p.join()
+    if p.exitcode not in (0, None) and not items:
+        items.append({"error": f"child exited with code {p.exitcode} (-9 = killed, e.g. out of memory)"})
     return items
 
 
@@ -141,12 +167,14 @@ def main():
             out["models"][f"{ds}|{name}"] = r[0] if r else {"error": "child process failed (likely OOM)"}
             print(ds, name, out["models"][f"{ds}|{name}"], flush=True)
     d = child(bench_deep)
-    out["lstm_ae"] = {f"{k}_features" if k != "rss" else "peak_rss_MB": v for k, v in d}
+    out["lstm_ae"] = ({("peak_rss_MB" if k == "rss" else f"{k}_features"): v for k, v in d}
+                      if d and isinstance(d[0], tuple) else {"error": d})
+    out["container"] = {"memory_max": cgroup("memory.max"), "memory_peak_bytes": cgroup("memory.peak"),
+                        "memory_events": cgroup("memory.events")}
     print(out["lstm_ae"])
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2)
 
 
 if __name__ == "__main__":
-    mp.set_start_method("fork")
     main()

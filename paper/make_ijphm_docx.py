@@ -1,6 +1,6 @@
 """Convert paper2_revised.tex to an IJPHM Word manuscript.
 
-Run: python paper/make_ijphm_docx.py   -> paper/Shah_IJPHM_Evaluation_Protocol_Decides_the_Winner.docx
+Run: python paper/make_ijphm_docx.py   -> paper/Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx
 
 1. Rewrite the LaTeX so pandoc can handle it: natbib citations become APA text
    from the \\bibitem labels; simple numeric maths becomes plain text.
@@ -21,7 +21,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 TEX = HERE / "paper2_revised.tex"
 TEMPLATE = HERE.parent / "ijphm" / "ijPHM-FullPaperTemplate.docx"
-OUT = HERE / "Shah_IJPHM_Evaluation_Protocol_Decides_the_Winner.docx"
+OUT = HERE / "Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx"
 UNNUMBERED = {"References", "Data and Code Availability", "Disclosure of Interests"}
 LICENCE = ("Sarjan Shah et al. This is an open-access article distributed under the terms of the Creative "
            "Commons Attribution 3.0 United States License, which permits unrestricted use, distribution, and "
@@ -53,6 +53,12 @@ def rewrite(src, lab):
     src = re.sub(r"(?<!\\)\$([^$]+?)\$", plain_math, src)
     src = re.sub(r"\\let\\thefootnote.*?\n", "", src)           # licence note is rebuilt in the title block
     src = re.sub(r"\\author\{.*?\\date\{\}", r"\\author{AUTHORS}\n\\date{}", src, flags=re.S)
+    # IJPHM allows tables and figures after the references in one column; wide
+    # tables otherwise break across the two body columns
+    floats = re.findall(r"\\begin\{(?:table|figure)\}.*?\\end\{(?:table|figure)\}", src, re.S)
+    for f in floats:
+        src = src.replace(f, "", 1)
+    src = src.replace("\\end{document}", "\n\nFLOATSMARKER\n\n" + "\n\n".join(floats) + "\n\n\\end{document}")
     return src
 
 
@@ -76,6 +82,9 @@ def title_block(title_xml):
 
 def postprocess(xml, tpl_xml):
     xml = re.sub(r'"\s+/>', '"/>', xml)  # pandoc writes <w:x a="b" />
+    # IJPHM: table captions go below the table
+    xml = re.sub(r'(<w:p>(?:(?!<w:p>).)*?<w:pStyle w:val="TableCaption"/>.*?</w:p>)\s*(<w:tbl>.*?</w:tbl>)',
+                 r"\2\1", xml, flags=re.S)
     # title block: replace pandoc's Title + Author paragraphs
     t = re.search(r'<w:p>(?:(?!<w:p>).)*?<w:pStyle w:val="Title"/>.*?</w:p>', xml, re.S).group(0)
     authors = re.findall(r'<w:p>(?:(?!<w:p>).)*?<w:pStyle w:val="Author"/>.*?</w:p>', xml, re.S)
@@ -109,8 +118,11 @@ def postprocess(xml, tpl_xml):
     kw = re.search(r'<w:p>(?:(?!<w:p>).)*?Keywords:.*?</w:p>', xml, re.S).group(0)
     licence = para("phmnormal", run(LICENCE, italic=True, size=16), one_col)
     xml = xml.replace(kw, kw + licence, 1)
-    j = xml.rfind("<w:sectPr")  # the document's final section properties
-    xml = xml[:j] + f'<w:sectPr><w:type w:val="continuous"/>{pg}<w:cols w:num="2" w:space="360"/></w:sectPr></w:body></w:document>'
+    two_col = f'<w:sectPr><w:type w:val="continuous"/>{pg}<w:cols w:num="2" w:space="360"/></w:sectPr>'
+    marker = re.search(r'<w:p>(?:(?!<w:p>).)*?FLOATSMARKER.*?</w:p>', xml, re.S).group(0)
+    xml = xml.replace(marker, f'<w:p><w:pPr>{two_col}</w:pPr></w:p>', 1)   # body ends two-column
+    j = xml.rfind("<w:sectPr")  # final section: tables and figures, one column
+    xml = xml[:j] + f'<w:sectPr><w:type w:val="nextPage"/>{pg}<w:cols w:space="720"/></w:sectPr></w:body></w:document>'
 
     return xml
 

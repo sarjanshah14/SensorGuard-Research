@@ -1297,3 +1297,15 @@ local compile, because this machine has no LaTeX installed.
 **Steps:** downloaded HAI 21.03 (sparse git checkout, 179 MB, `external_data/`, gitignored); wrote `experiments/revision/hai_revised.py` with the same protocol as SWaT. Two runs were killed (exit 137, out of memory) inside PyOD's ECOD: it rescores test rows jointly with all stored training rows (850k × 275 features). Fixed by fitting ECOD/COPOD on a 100k-row subsample and scoring in 50k-row chunks (documented as a small source of score variation). For Word output, pandoc with the IJPHM template as reference doc, then a post-processor that maps pandoc's styles to the template's `phm_*` styles (headings auto-number), rebuilds the title block, adds the CC BY licence note, and sets one-column title/abstract + two-column body. Bugs fixed on the way: pandoc writes `" />"` (regex missed it); a greedy section-properties replacement deleted the body.
 
 **Plain language:** On HAI the detectors are *not* tied and a different group wins (PCA and LOF), and thresholds learned from normal data work fine there. So "who wins" depends on the plant as well as the protocol; the steady performers across both industrial plants were the two simplest methods. The paper now has three datasets and a Word file in the journal's own template.
+
+---
+
+## Session 26 — 2026-10-29 — Response to external pre-submission review
+
+**Goal:** an external read of the Word manuscript (6.8/10 potential, 4/10 readiness) raised four blockers: official SWaT, inconsistent memory numbers (1.1 GB RSS in a 1 GB container), mismatched retraining budgets, broken table layout; plus methods detail, synthesis table, repository URL, title.
+
+**Diagnosis:** both numeric issues were real bugs. (1) The periodic policy's interval was derived from the KS policy's *successful* refits, while refits are skipped when the selected window has under 1,000 rows, so budgets did not match (52 vs 10 with predicted-normal selection). (2) Edge children were *forked*; a forked child's RSS includes pages shared with the parent that the cgroup charges once, inflating per-model memory and creating the 533 MB floor.
+
+**Fixes:** drift now records attempts and refits and sweeps P = 1..48 to give a budget curve; edge uses spawned processes, reports baseline RSS, per-model peak increase (VmHWM reset after loading) and the cgroup's memory.peak/events. Word build moves tables/figures after the references into a one-column section and puts table captions below. Added implementation table, synthesis table, Poenaru-Olaru et al. (CAIN 2024) as closest prior work, new title.
+
+**Plain language:** the two numbers the reviewer doubted were measurement mistakes, now fixed: the container really was capped at 1 GB (the heavy ECOD/COPOD runs pushed it to the limit without crashing), and with fair budgets a drift trigger saves some retrains but checking for drift costs more than simply retraining every hour. Only the official SWaT data and a public code link remain.

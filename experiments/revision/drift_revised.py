@@ -7,8 +7,12 @@ can be used for retraining):
   - initial model: first 50,000 normal rows after start-up (~14 h);
   - stream: rest of the 7-day normal run, then the 5-day attack period;
   - policies: static | KS-triggered (mean KS D vs reference > 95th pct of
-    within-initial-window variation) | periodic (same number of retrains as
-    KS, evenly spaced) | always (every batch);
+    within-initial-window variation) | periodic every P batches for
+    P in PERIODS (P = 1 is "always"), giving a cost-performance curve against
+    which the KS policy is compared;
+  - a retrain *attempt* is a batch where the policy fires; it becomes a *refit*
+    only if the selected window holds > 1,000 rows (otherwise the model is kept).
+    Both counts are reported;
   - retraining data = last 5 batches, rows selected by
       oracle      : ground-truth normal rows (what the original paper did),
       pred_normal : rows the current model scored as normal (label-free),
@@ -34,6 +38,7 @@ from experiments.revision.swat_revised import SENSORS, STARTUP, load_standard
 OUT = "results/revised/drift.json"
 N_INIT, BATCH, WINDOW = 50000, 3600, 5
 MODELS = ["IsolationForest", "EllipticEnvelope"]
+PERIODS = [1, 2, 3, 4, 6, 12, 24, 48]
 
 
 def fit(name, X):
@@ -45,7 +50,7 @@ def run(name, Xinit, batches, ybat, policy, select, period=None, ks_thr=None):
     m, thr = fit(name, Xinit)
     ref = Xinit
     recent = deque(maxlen=WINDOW)
-    preds, retrains, retrain_s, ks_s = [], 0, 0.0, 0.0
+    preds, retrains, attempts, retrain_s, ks_s = [], 0, 0, 0.0, 0.0
     for i, (Xb, yb) in enumerate(zip(batches, ybat)):
         p = m.score(Xb) > thr
         preds.append(p)
@@ -61,6 +66,7 @@ def run(name, Xinit, batches, ybat, policy, select, period=None, ks_thr=None):
             do = drift_score(ref, Xb) > ks_thr
             ks_s += time.perf_counter() - t
         if do:
+            attempts += 1
             Xr = np.vstack(list(recent))
             if len(Xr) > 1000:
                 t = time.perf_counter()
@@ -68,12 +74,12 @@ def run(name, Xinit, batches, ybat, policy, select, period=None, ks_thr=None):
                 retrain_s += time.perf_counter() - t
                 ref = Xr
                 retrains += 1
-    return np.concatenate(preds), retrains, retrain_s, ks_s
+    return np.concatenate(preds), (retrains, attempts), retrain_s, ks_s
 
 
-def summarise(pred, y, seg, retrains, retrain_s, ks_s):
+def summarise(pred, y, seg, counts, retrain_s, ks_s):
     n, a = seg == 0, seg == 1
-    return {"retrains": retrains, "retrain_cpu_s": round(retrain_s, 2), "ks_check_cpu_s": round(ks_s, 2),
+    return {"retrains": counts[0], "attempts": counts[1], "retrain_cpu_s": round(retrain_s, 2), "ks_check_cpu_s": round(ks_s, 2),
             "normal_week_fpr": float(pred[n].mean()),
             "attack_period": {**point_metrics(y[a], pred[a].astype(float), 0.5),
                               **event_metrics(y[a], pred[a].astype(float), 0.5)}}
@@ -111,18 +117,16 @@ def main():
         for sel in ["oracle", "pred_normal", "all"]:
             p, r, rs, ks = run(name, Xinit, batches, ybat, "ks", sel, ks_thr=ks_thr)
             out["runs"][f"{name}|ks|{sel}"] = summarise(p, y, seg, r, rs, ks)
-            period = max(1, len(batches) // max(1, r))
-            p, r2, rs, ks = run(name, Xinit, batches, ybat, "periodic", sel, period=period)
-            out["runs"][f"{name}|periodic|{sel}"] = {**summarise(p, y, seg, r2, rs, ks), "period_batches": period}
-            p, r3, rs, ks = run(name, Xinit, batches, ybat, "always", sel)
-            out["runs"][f"{name}|always|{sel}"] = summarise(p, y, seg, r3, rs, ks)
+            for P in PERIODS:
+                p, r2, rs, ks = run(name, Xinit, batches, ybat, "periodic", sel, period=P)
+                out["runs"][f"{name}|periodic{P}|{sel}"] = {**summarise(p, y, seg, r2, rs, ks), "period_batches": P}
             print(f"  {name} {sel} done", flush=True)
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2)
     print("static IF normal-week FPR (first, mid, last):", traj[0], traj[len(traj) // 2], traj[-1])
     for k, v in out["runs"].items():
         ap_ = v["attack_period"]
-        print(f"{k:34s} retrains {v['retrains']:3d}  normalFPR {v['normal_week_fpr']:.3f} | attack MCC {ap_['mcc']:+.3f} "
+        print(f"{k:34s} attempts {v['attempts']:3d} refits {v['retrains']:3d}  normalFPR {v['normal_week_fpr']:.3f} | attack MCC {ap_['mcc']:+.3f} "
               f"rec {ap_['recall']:.3f} FPR {ap_['fpr']:.3f} evRec {ap_['event_recall']:.2f}  cpu {v['retrain_cpu_s']}s")
 
 

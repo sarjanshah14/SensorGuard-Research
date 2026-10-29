@@ -15,9 +15,8 @@
 \usepackage[hidelinks]{hyperref}
 \graphicspath{{figures/}{./}}
 
-\title{Evaluation Protocol Decides the Winner: Threshold Stability, Retraining
-Risk and Cost of Lightweight Unsupervised Anomaly Detectors for Industrial
-Sensor Data}
+\title{Protocol Sensitivity in Unsupervised Industrial Anomaly Detection:
+Threshold Transfer, Retraining Risk, and Inference Cost}
 \author{Sarjan Shah \and Abhi Shah\\[2pt]
 \small Department of Information Technology, Lok Jagruti University, Vadodara, Gujarat, India\\
 \small \texttt{shahsarjan968@gmail.com}, \texttt{abhi.shah@ljku.edu.in}}
@@ -54,9 +53,10 @@ failure is dataset-specific. Only the $z$-score and One-Class SVM were dependabl
 both (MCC $0.60$--$0.72$). In a streaming
 simulation, SWaT's normal operation drifted enough to raise a static Isolation
 Forest's false-alarm rate from 12\% to 76\%; retraining restored detection only when
-retraining data were known to be normal, drift-triggered retraining was no better
-than a schedule with the same budget, and label-free retraining failed. Single-reading
-cost in a one-CPU, 1\,GB container ranged from microseconds to over 600\,ms. The
+retraining data were known to be normal; a drift trigger saved some refits relative to
+a schedule but its checks cost more than refitting every hour; and label-free
+retraining failed. Single-reading
+cost in a one-CPU, 1\,GB container ranged from microseconds to about 700\,ms. The
 results argue for choosing detectors by threshold stability and retraining needs and
 for reporting protocols in enough detail to tell which of these a benchmark number
 measures.
@@ -184,11 +184,17 @@ detect shift \citep{rabanser2019}; adaptive windows such as ADWIN resize the
 reference automatically \citep{bifet2007}; streaming anomaly benchmarks such as
 NAB score detectors online \citep{ahmad2017}. For an anomaly detector, adapting
 to drift carries a specific risk: data used for retraining may contain the very
-anomalies the detector should flag. Our search found no study that compares
-drift-triggered with periodic retraining at matched cost on SWaT or quantifies
-the effect of selecting retraining data with versus without labels; this is a
-statement about the search performed (documented in the supplementary
-literature log), not a claim of absence.
+anomalies the detector should flag. Retraining policies have been compared
+directly for anomaly detectors in IT operations, where periodic (blind)
+retraining performed slightly better than retraining triggered by a drift
+detector and the best retraining window depended on the detector
+\citep{poenaru2024}; a recent preprint on streaming classifiers likewise reports
+periodic retraining outperforming error- and ADWIN-triggered policies except under
+recurring drift \citep{dasari2026}. Those studies retrain on data whose labels or
+normality are known. The present study asks the same question for lightweight
+detectors on industrial-control data and adds the factor a deployed detector cannot
+avoid: whether the retraining data are selected with labels, by the detector's own
+predictions, or not at all.
 
 \paragraph{Resource cost.} MLPerf Tiny measures accuracy, latency and energy of
 single inferences on constrained hardware, including an anomaly-detection task
@@ -266,7 +272,36 @@ detectors use every training row. The deep baseline is an LSTM autoencoder (one-
 64 hidden units, $\approx$\,52k--58k parameters) on 30-second windows of raw
 scaled sensors, trained for 25 epochs with Adam; a row's score is the
 reconstruction error of the window ending at that row \citep{malhotra2016}.
-All models are fitted on normal rows only.
+All models are fitted on rows labelled normal, with one exception: under the
+SKAB reference protocol the first 400 rows of each run are used as given, and
+2.1\% of them are labelled anomalous. Table~\ref{tab:impl} lists the implementation
+details.
+
+\begin{table}[t]
+\centering\small
+\caption{Implementation details. All classical detectors receive the same standardised
+feature matrix (StandardScaler fitted on training rows only); scores are oriented so
+that higher means more anomalous.}
+\label{tab:impl}
+\begin{tabular}{lll}
+\toprule
+Detector & Configuration & Score (higher = more anomalous) \\
+\midrule
+$z$-score & training mean and s.d.\ per feature & $\max_j |x_j-\mu_j|/\sigma_j$ \\
+PCA-recon & components for 95\% of variance & squared reconstruction error \\
+Elliptic Envelope & 10 whitened PCs; robust MCD (default support) & Mahalanobis distance \\
+Isolation Forest & 100 trees, default subsample, seeds 0--9 & $-$score\_samples \\
+One-Class SVM & RBF, $\nu{=}0.1$, gamma = scale & $-$decision\_function \\
+LOF & $k{=}20$, novelty mode & $-$score\_samples \\
+ECOD, COPOD, HBOS & PyOD defaults & decision\_function \\
+LSTM-AE & 1-layer LSTM enc./dec., 64 units, window 30, Adam, lr $10^{-3}$, & window MSE \\
+ & batch 256, 25 epochs, stride 2 (4 on HAI); raw sensors, own scaler & \\
+\midrule
+\multicolumn{3}{l}{Software: Python 3.14 (host) / 3.12 (container), NumPy 2.4.6, SciPy 1.17.1, pandas 3.0.3,}\\
+\multicolumn{3}{l}{scikit-learn 1.9.0, PyOD 3.6.7, PyTorch 2.12.1. Seeds: 0 unless stated; bootstrap: NumPy default\_rng(0).}\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Threshold rules}
 \label{sec:thr}
@@ -352,11 +387,17 @@ rows per batch, $p$-values vanish for negligible differences, whereas $\bar D$
 is a bounded effect size.
 
 \subsection{Resource measurement}
-Each detector is fitted and timed in its own process inside a Docker container
-limited to one CPU and 1\,GB of RAM on an ARM64 (Apple M4) host, with BLAS
-threads limited to one. Reported are fit time, serialised size, load time,
-single-reading latency over 1{,}000 calls (median, 95th and 99th percentiles),
-batch throughput on 10{,}000 rows, and the child process's peak resident memory.
+Each detector is fitted and timed in its own freshly started (spawned) process
+inside a Docker container run with \texttt{--cpus=1 --memory=1g} on an ARM64
+(Apple M4) host, with BLAS threads limited to one; the container's control group
+confirmed a 1.0-CPU quota and a 1{,}024\,MB memory limit. Reported are fit time,
+serialised model size, load time from the serialised form, single-reading latency
+over 1{,}000 calls after one warm-up call (median, 95th and 99th percentiles), batch
+throughput on 10{,}000 rows, and memory in two parts: the process's resident memory
+after the interpreter, libraries and data are loaded (\emph{baseline}), and the peak
+increase above that baseline while fitting and scoring (\emph{model memory}, from
+the kernel's high-water mark reset after loading). The container-wide peak and
+memory events are read from the control group.
 The cost of recomputing the rolling features for one new reading from a
 30-row buffer is reported separately. This is a capped container, not an edge
 device: a physical device's slower cores, thermal limits and I/O are not
@@ -607,71 +648,67 @@ features, whereas the Elliptic Envelope operates on ten whitened principal
 components; a plausible, untested explanation is that slow level changes in
 individual sensors fall mostly outside those components.
 
-\paragraph{Retraining policies.} Table~\ref{tab:drift} and Fig.~\ref{fig:drift}
-(right) compare policies over the attack period after the normal week. With
-retraining data selected by ground-truth labels (as in the initial analysis),
-retraining helps Isolation Forest substantially: MCC rises from $0.167$
-(static, which flags 73\% of normal rows) to $0.488$ when triggered by the KS
-statistic (74 retrains), $0.456$ when the same number of retrains is evenly
-spaced, and $0.537$ when retraining after every batch. Drift triggering is thus
-about as good as a schedule with the same budget; it is not clearly better. For
-the Elliptic Envelope, no policy improves on the static model (MCC $0.723$ static,
-$0.709$--$0.734$ with retraining).
+\paragraph{Retraining budget.} A retrain \emph{attempt} is a batch on which the
+policy fires; it becomes a \emph{refit} only if the selected five-hour window holds
+more than 1{,}000 rows, otherwise the current model is kept. To compare policies at
+equal cost, the periodic policy was run every $P\in\{1,2,3,4,6,12,24,48\}$ batches,
+which traces how detection skill grows with the number of refits; the KS-triggered
+policy is then read against that curve (Table~\ref{tab:drift}, Fig.~\ref{fig:drift}).
 
-\paragraph{Without labels, retraining can fail.} A deployed detector does not
-know which recent rows are normal. When Isolation Forest retrains on the rows it
-did \emph{not} flag, it enters a self-reinforcing failure: once it flags most rows,
-too few remain to retrain on, and it ends up flagging everything (MCC $0.000$ to
-$0.025$, false-alarm rate 99.5--100\%). Retraining on all recent rows avoids that
-collapse but absorbs the attacks into the model of normal behaviour, roughly
-halving recall ($0.30$--$0.51$) and giving MCC $0.188$--$0.303$. The Elliptic
-Envelope tolerates predicted-normal selection (MCC $0.683$--$0.734$) but loses
-more than half its skill when retraining on all rows ($0.332$--$0.418$). The
-benefit of adaptation reported in the initial analysis therefore depended on
-labels that a deployment would not have.
+\paragraph{With labelled retraining data.} When retraining rows are selected with
+ground-truth labels (as in the initial analysis), Isolation Forest's skill over the
+attack period rises steadily with the number of refits: MCC $0.167$ static (73\% of
+normal rows flagged), $0.276$ with 5 refits, $0.380$ with 40, $0.456$ with 80, $0.485$
+with 120 and $0.537$ when refitting after every batch (239). The KS-triggered policy
+reached $0.488$ with 74 refits (79 attempts), above the periodic curve at 80 refits
+and level with periodic retraining at 120 refits, so triggering buys a modest saving in
+the number of refits. For the Elliptic Envelope, no budget changes the outcome: MCC
+$0.707$--$0.731$ at every periodic budget and $0.709$ for the KS policy, against $0.723$
+for the static model.
 
-\paragraph{Cost.} On the host, an Isolation Forest retrain on five hours of data
-took about $0.08$--$0.1$\,s and an Elliptic Envelope retrain about $1.1$\,s. The KS
-drift check (120 features against a reference of up to 50{,}000 rows) took
-$0.22$--$0.46$\,s per hourly batch in the label-selected and all-rows runs, and up
-to $2$\,s when the reference grew large. For Isolation Forest, checking for drift
-therefore costs more than simply retraining every hour, and every-hour
-retraining gave the best result. A drift trigger pays off only when retraining
-is expensive relative to the check, as for the Elliptic Envelope.
+\paragraph{Without labels, retraining can fail.} A deployed detector does not know
+which recent rows are normal. When Isolation Forest retrains on the rows it did
+\emph{not} flag, it enters a self-reinforcing failure: once it flags most rows, too few
+remain to refit on, attempts stop turning into refits (193 attempts gave 52 refits
+under the KS policy; 61 attempts gave 10 refits at $P{=}4$), and the detector ends up
+flagging everything (MCC $0.000$--$0.033$ at every budget except $P{=}2$, $0.286$).
+Retraining on all recent rows avoids that collapse but absorbs the attacks into the
+model of normal behaviour: recall falls to $0.27$--$0.51$ and MCC to $0.074$--$0.303$
+whenever refits are frequent. The Elliptic Envelope tolerates predicted-normal selection
+at every budget (MCC $0.683$--$0.748$). With all-rows retraining it loses skill only when
+refits are frequent (MCC $0.332$--$0.530$ with 40 or more refits, $0.683$--$0.717$ with
+20 or fewer), because each frequent refit takes in a larger share of the ongoing attacks.
+The benefit of adaptation reported in the initial analysis therefore depended on labels
+that a deployment would not have.
+
+\paragraph{Cost.} On the host, an Isolation Forest refit on five hours of data took
+about $0.08$\,s and an Elliptic Envelope refit about $1.1$\,s. The KS check (120
+features against a reference of up to 50{,}000 rows) cost $51$--$117$\,s of CPU over the
+244 batches in the label-selected and all-rows runs ($0.2$--$0.5$\,s per batch) and
+$483$\,s in the collapsing predicted-normal run. For Isolation Forest the checks alone
+cost five times more than refitting after every batch ($96$\,s against $19$\,s, oracle
+selection), and every-batch refitting gave the best detection, so a drift trigger does not
+pay. A trigger can pay only when refits are expensive relative to the check, as for the
+Elliptic Envelope, which in this stream did not need retraining at all.
 
 \begin{table}[t]
 \centering\small
-\caption{Retraining policies on SWaT (stream: rest of the normal week, 119 hourly
-batches, then the attack period, 125 batches). Normal FAR: false-alarm rate over the
-streamed normal week. Attack-period metrics are point-wise; event recall over 35
-segments. Retrain CPU: total seconds spent refitting (host).}
+\caption{Retraining budget on SWaT: MCC over the attack period (point-wise) for each
+detector and retraining-data selection, at every periodic budget $P$ (refit attempt
+every $P$ hourly batches; 244 batches in total) and for the KS-triggered policy. The
+number in brackets is the number of successful refits. Static: Isolation Forest
+$0.167$, Elliptic Envelope $0.723$.}
 \label{tab:drift}
-\begin{tabular}{llrcccccr}
+\begin{tabular}{llcccccccc}
 \toprule
-Detector & Policy & Retrains & Normal FAR & MCC & Recall & FAR & Event rec. & CPU s \\
+ & Selection & $P{=}1$ & $P{=}2$ & $P{=}3$ & $P{=}6$ & $P{=}12$ & $P{=}24$ & $P{=}48$ & KS \\
 \midrule
-\multicolumn{9}{l}{\emph{Isolation Forest}}\\
- & static & 0 & 0.431 & 0.167 & 0.949 & 0.730 & 1.00 & 0.0 \\
- & KS, oracle & 74 & 0.119 & 0.488 & 0.695 & 0.115 & 0.83 & 7.0 \\
- & periodic, oracle & 80 & 0.187 & 0.456 & 0.716 & 0.144 & 0.83 & 6.4 \\
- & always, oracle & 239 & 0.105 & 0.537 & 0.687 & 0.086 & 0.80 & 19.6 \\
- & KS, pred.-normal & 52 & 0.565 & 0.025 & 1.000 & 0.995 & 1.00 & 4.1 \\
- & periodic, pred.-normal & 10 & 0.877 & 0.000 & 1.000 & 1.000 & 1.00 & 0.5 \\
- & always, pred.-normal & 52 & 0.721 & 0.001 & 1.000 & 1.000 & 1.00 & 3.3 \\
- & KS, all rows & 79 & 0.119 & 0.188 & 0.305 & 0.110 & 0.86 & 7.2 \\
- & periodic, all rows & 81 & 0.187 & 0.303 & 0.505 & 0.143 & 0.86 & 7.8 \\
- & always, all rows & 244 & 0.105 & 0.226 & 0.298 & 0.083 & 0.83 & 22.7 \\
-\multicolumn{9}{l}{\emph{Elliptic Envelope}}\\
- & static & 0 & 0.009 & 0.723 & 0.634 & 0.011 & 0.80 & 0.0 \\
- & KS, oracle & 74 & 0.011 & 0.709 & 0.598 & 0.008 & 0.74 & 79.6 \\
- & periodic, oracle & 80 & 0.021 & 0.717 & 0.615 & 0.010 & 0.74 & 95.3 \\
- & always, oracle & 239 & 0.011 & 0.711 & 0.607 & 0.010 & 0.74 & 283.0 \\
- & KS, pred.-normal & 73 & 0.014 & 0.725 & 0.643 & 0.012 & 0.69 & 85.9 \\
- & periodic, pred.-normal & 80 & 0.025 & 0.734 & 0.667 & 0.014 & 0.69 & 84.1 \\
- & always, pred.-normal & 238 & 0.016 & 0.683 & 0.653 & 0.024 & 0.77 & 234.7 \\
- & KS, all rows & 79 & 0.011 & 0.332 & 0.180 & 0.008 & 0.77 & 82.4 \\
- & periodic, all rows & 81 & 0.021 & 0.418 & 0.260 & 0.010 & 0.80 & 90.0 \\
- & always, all rows & 244 & 0.011 & 0.335 & 0.189 & 0.010 & 0.80 & 279.1 \\
+IF & oracle & 0.537 (239) & 0.485 (120) & 0.456 (80) & 0.380 (40) & 0.325 (20) & 0.254 (10) & 0.276 (5) & 0.488 (74) \\
+ & pred.-normal & 0.001 (52) & 0.286 (105) & 0.004 (25) & 0.000 (7) & 0.000 (4) & 0.033 (4) & 0.005 (1) & 0.025 (52) \\
+ & all rows & 0.226 (244) & 0.147 (122) & 0.303 (81) & 0.124 (40) & 0.301 (20) & 0.225 (10) & 0.200 (5) & 0.188 (79) \\
+EE & oracle & 0.711 (239) & 0.707 (120) & 0.717 (80) & 0.726 (40) & 0.719 (20) & 0.724 (10) & 0.731 (5) & 0.709 (74) \\
+ & pred.-normal & 0.683 (238) & 0.729 (120) & 0.734 (80) & 0.711 (39) & 0.738 (20) & 0.748 (10) & 0.740 (5) & 0.725 (73) \\
+ & all rows & 0.335 (244) & 0.405 (122) & 0.418 (81) & 0.423 (40) & 0.717 (20) & 0.701 (10) & 0.683 (5) & 0.332 (79) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -679,13 +716,11 @@ Detector & Policy & Retrains & Normal FAR & MCC & Recall & FAR & Event rec. & CP
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{drift_policies.png}
-\caption{Left: false-alarm rate of a static Isolation Forest over SWaT's genuine
-normal week (threshold set to flag 1\% of its training window). Middle and right: detection
-skill (MCC) over the attack period for each retraining policy, coloured by how
-retraining data are selected; grey is the static model. Selecting with ground-truth
-labels (blue) is what makes retraining help Isolation Forest; label-free selection
-(orange, green) does not. The static Elliptic Envelope is already as good as any
-adaptive variant.}
+\caption{Left: false-alarm rate of a static Isolation Forest over SWaT's genuine normal
+week (threshold set to flag 1\% of its training window). Middle and right: detection
+skill (MCC) over the attack period against the number of successful refits; lines are
+periodic retraining at different budgets, stars the KS-triggered policy, the dashed line
+the static model. Colours give the retraining-data selection.}
 \label{fig:drift}
 \end{figure}
 
@@ -704,43 +739,50 @@ deployment, a property a single benchmark number hides.
 
 Table~\ref{tab:edge} and Fig.~\ref{fig:edge} report the cost of each detector
 fitted on SWaT-shaped data (120 features; 50{,}000 normal rows) inside the
-one-CPU, 1\,GB ARM64 container. Single-reading latency spans almost six orders of
+one-CPU, 1\,GB ARM64 container. Single-reading latency spans more than five orders of
 magnitude. The $z$-score scores a reading in $0.002$\,ms; PCA reconstruction, HBOS,
-Elliptic Envelope and One-Class SVM take $0.05$--$0.22$\,ms; LOF $1.1$\,ms;
-Isolation Forest $2.8$\,ms, dominated by per-call overhead across its 100 trees,
-since its batch throughput is $659{,}000$ rows/s. ECOD and COPOD, as implemented in
-PyOD, keep their training data and rescore against it on every call: $655$ and
-$791$\,ms per reading, $235$\,MB models, and peak memory at the container's 1\,GB cap
-(reported peak resident memory $1.10$--$1.13$\,GB). On SKAB-shaped data (40
-features) the pattern is the same at smaller scale (Isolation Forest $2.3$\,ms; ECOD
-and COPOD $133$--$148$\,ms and 39\,MB). The LSTM autoencoder takes $0.86$\,ms per
-30-second window with 58k parameters, but needs a deep-learning runtime (peak
-process memory $336$\,MB for inference alone). Recomputing the rolling features for
+Elliptic Envelope and One-Class SVM take $0.05$--$0.16$\,ms; LOF $0.89$\,ms;
+Isolation Forest $2.3$\,ms, dominated by per-call overhead across its 100 trees,
+since its batch throughput is about $850{,}000$ rows/s. ECOD and COPOD, as
+implemented in PyOD, keep their training data and rescore against it on every
+call: $698$ and $739$\,ms per reading and $235$\,MB models. Above a baseline of
+about $444$\,MB (Python, libraries and data), the detectors themselves needed
+$71$--$228$\,MB, except ECOD and COPOD ($516$ and $527$\,MB). The container's memory
+use reached its 1\,GB limit only during the ECOD and COPOD runs: the kernel recorded
+3{,}127 reclaim events at the limit and no out-of-memory kills, so the cap was
+enforced and both completed. On SKAB-shaped data (40 features) the pattern is the
+same at smaller scale (Isolation Forest $2.3$\,ms; ECOD and COPOD $118$--$125$\,ms,
+39\,MB models, about $260$\,MB model memory). The LSTM autoencoder takes $0.78$\,ms
+per 30-second window with 58k parameters, but needs a deep-learning runtime (peak
+process memory $335$\,MB for inference alone). Recomputing the rolling features for
 one new reading from a 30-row buffer with the pipeline's pandas code costs
-$3.4$\,ms, more than any detector except ECOD and COPOD, so in a streaming
+$3.2$\,ms, more than any detector except ECOD and COPOD, so in a streaming
 deployment incremental feature updates would matter more than the choice among the
-fast detectors. These are lower bounds for a physical device.
+fast detectors. These are lower bounds for a physical device. (An earlier
+measurement in forked child processes over-counted memory, because a forked child's
+resident set includes pages shared with its parent; it is not used here.)
 
 \begin{table}[t]
 \centering\small
 \caption{Cost per detector in a Docker container capped at one CPU and 1\,GB RAM
-(linux/arm64 on an Apple M4 host; single BLAS thread). SWaT-shaped input, 120
-features. Latency: one reading per call, 1{,}000 calls after warm-up. Peak memory is
-per process and includes loading the data.}
+(linux/arm64 on an Apple M4 host; single BLAS thread; one spawned process per
+detector). SWaT-shaped input, 120 features, 50{,}000 training rows. Latency: one
+reading per call, 1{,}000 calls after warm-up. Model memory: peak resident-memory
+increase above the 444\,MB baseline during fitting and scoring.}
 \label{tab:edge}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-Detector & p50 latency (ms) & p99 (ms) & Batch rows/s & Size (KB) & Peak RSS (MB) \\
+Detector & Fit (s) & Load (ms) & p50 (ms) & p95 (ms) & Batch rows/s & Size (KB) & Model mem.\ (MB) \\
 \midrule
-$z$-score & 0.002 & 0.003 & 8{,}370{,}533 & 2 & 533 \\
-HBOS & 0.048 & 0.067 & 871{,}159 & 802 & 557 \\
-PCA-recon & 0.071 & 0.079 & 1{,}087{,}011 & 52 & 533 \\
-Elliptic Envelope & 0.182 & 0.193 & 5{,}090{,}678 & 503 & 533 \\
-One-Class SVM & 0.215 & 0.232 & 7{,}486 & 1{,}942 & 634 \\
-LOF & 1.138 & 1.202 & 6{,}183 & 22{,}188 & 533 \\
-Isolation Forest & 2.760 & 3.119 & 659{,}189 & 1{,}149 & 533 \\
-ECOD & 655.4 & 1{,}370.9 & 10{,}030 & 235{,}157 & 1{,}105 \\
-COPOD & 791.0 & 1{,}440.3 & 12{,}405 & 235{,}157 & 1{,}129 \\
+$z$-score & 0.006 & 0.12 & 0.002 & 0.002 & 7{,}188{,}644 & 2 & 107 \\
+HBOS & 1.10 & 0.24 & 0.050 & 0.053 & 812{,}430 & 802 & 164 \\
+PCA-recon & 0.019 & 0.18 & 0.058 & 0.063 & 1{,}242{,}616 & 52 & 71 \\
+Elliptic Envelope & 4.22 & 0.31 & 0.151 & 0.161 & 5{,}866{,}393 & 503 & 89 \\
+One-Class SVM & 3.10 & 2.78 & 0.158 & 0.172 & 10{,}049 & 1{,}942 & 228 \\
+LOF & 2.55 & 1.88 & 0.892 & 0.934 & 7{,}745 & 22{,}188 & 128 \\
+Isolation Forest & 0.072 & 7.46 & 2.255 & 2.353 & 853{,}367 & 1{,}149 & 85 \\
+ECOD & 0.83 & 196.5 & 698.2 & 956.7 & 8{,}960 & 235{,}157 & 516 \\
+COPOD & 1.11 & 222.6 & 739.3 & 833.9 & 11{,}203 & 235{,}157 & 527 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -755,6 +797,27 @@ capped container, for SKAB-shaped (40 features) and SWaT-shaped (120 features) i
 
 \section{Discussion}
 \label{sec:discussion}
+
+Table~\ref{tab:synth} condenses what each protocol choice did to the measured outcome
+and what it implies for someone selecting or deploying a detector.
+
+\begin{table}[t]
+\centering\small
+\caption{Summary: how each evaluation choice changed the measured outcome in this study,
+and the practical implication.}
+\label{tab:synth}
+\begin{tabular}{p{0.17\textwidth}p{0.43\textwidth}p{0.32\textwidth}}
+\toprule
+Choice & Evidence in this study & Implication \\
+\midrule
+Training/test split & SWaT re-upload layout vs standard split: AUROC $0.84$--$0.93$ vs $0.83$--$0.86$; HBOS first vs last. SKAB pooled vs per-run: chance-level vs run AUROC up to $0.79$, ranking inverted & State the time span and source of training and test data; use a benchmark's reference protocol \\
+Threshold rule & Shared contamination vs per-model calibration: $z$-score MCC $0.18$ vs $0.84$. Label-free vs label-calibrated on SWaT: LOF, PCA, LSTM-AE MCC $0.13$--$0.18$ vs $0.14$--$0.27$, false alarms $68$--$73\%$ & Report a label-free threshold as the deployable result; treat label-calibrated results as an optimistic reference \\
+Retraining data & Oracle labels: Isolation Forest MCC $0.17\to0.54$. Predicted-normal: collapse to flag-everything. All rows: attacks absorbed, MCC $\le0.30$ & Do not claim adaptation gains from label-selected retraining; vet retraining data or use slowly changing detectors \\
+Retraining trigger & KS trigger: $0.488$ with 74 refits vs periodic $0.456$ (80), $0.485$ (120); KS checks $96$\,s vs every-batch refits $19$\,s & Compare triggers against a budget curve, including the cost of the check \\
+Cost measurement & Batch-averaged vs single-reading latency for Isolation Forest: $0.0019$ vs $2.3$\,ms; feature update $3.2$\,ms & Report single-reading latency and memory above a stated baseline \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Ranking quality is not the bottleneck; thresholds and protocols are.}
 On SWaT's standard split, ten detectors that span statistical, distance,
@@ -794,7 +857,7 @@ of the threshold rather than the model. For cheap models such as Isolation Fores
 drift test can cost more than the retrain it is meant to save.
 
 \paragraph{Cost.} Single-reading latencies span almost six orders of magnitude, from
-microseconds ($z$-score) to over 600\,ms (ECOD and COPOD in PyOD on SWaT, which store and
+microseconds ($z$-score) to about 700\,ms (ECOD and COPOD in PyOD on SWaT, which store and
 rescore against their training data), and model sizes from 1\,KB to 235\,MB. The
 batch-amortised figures used in the initial analysis (around $0.002$\,ms per row for
 Isolation Forest) understate the real single-reading cost (about $2.3$--$2.8$\,ms)
@@ -831,8 +894,8 @@ adaptation were not compared. Policies are compared without confidence intervals
 because the stream is a single realisation.
 \item \textbf{Resource measurements.} A Docker container capped at one CPU and
 1\,GB on an Apple M4 host is not a physical edge device: slower cores, thermal
-limits and real I/O are absent, so latencies are lower bounds. Peak memory is per
-process and includes loading the dataset. Energy was not measured.
+limits and real I/O are absent, so latencies are lower bounds. Model memory is the peak
+increase above a measured baseline and includes transient scoring buffers. Energy was not measured.
 \item \textbf{SKAB protocols.} The SKAB reference protocol trains on rows of which
 2.1\% are labelled anomalous, and its label-free threshold is set from each
 run's own training scores; results are not directly comparable with the SKAB
@@ -860,10 +923,10 @@ pooled ranking. Under thresholds set only from normal data, the simple $z$-score
 One-Class SVM and Isolation Forest were the most dependable on SWaT (MCC
 $0.64$--$0.72$). (RQ3) Normal operation drifts enough to break a static Isolation
 Forest; retraining restores it only when the retraining data are known to be
-normal, drift-triggered retraining was no better than a schedule with the same
-budget, and label-free retraining failed. (RQ4) Single-reading costs range from
-microseconds to over 600\,ms and model sizes from kilobytes to hundreds of megabytes
-under a one-CPU, 1\,GB cap; the per-reading feature update (3.4\,ms) costs more than
+normal, drift-triggered retraining saved some refits but
+cost more in drift checks than it saved, and label-free retraining failed. (RQ4) Single-reading costs range from
+microseconds to about 700\,ms and model sizes from kilobytes to hundreds of megabytes
+under a one-CPU, 1\,GB cap; the per-reading feature update (3.2\,ms) costs more than
 most detectors.
 
 The initial analysis reported dataset-specific winners, a large
@@ -907,6 +970,8 @@ The authors have no competing interests to declare.
 
 \bibitem[Chicco \& Jurman(2020)]{chicco2020} Chicco, D., \& Jurman, G. (2020). The advantages of the Matthews correlation coefficient (MCC) over F1 score and accuracy in binary classification evaluation. \emph{BMC Genomics}, 21, 6. doi:10.1186/s12864-019-6413-7
 
+\bibitem[Dasari(2026)]{dasari2026} Dasari, S. (2026). When to retrain: An empirical study of retraining policies for streaming ML under concept drift, budget, and latency constraints. arXiv preprint arXiv:2608.19488.
+
 \bibitem[Deng \& Hooi(2021)]{deng2021} Deng, A., \& Hooi, B. (2021). Graph neural network-based anomaly detection in multivariate time series. In \emph{Proc.\ AAAI Conf.\ on Artificial Intelligence}, 35(5), 4027--4035. doi:10.1609/aaai.v35i5.16523
 
 \bibitem[Gama et~al.(2014)]{gama2014} Gama, J., \v{Z}liobait\.{e}, I., Bifet, A., Pechenizkiy, M., \& Bouchachia, A. (2014). A survey on concept drift adaptation. \emph{ACM Computing Surveys}, 46(4), 1--37. doi:10.1145/2523813
@@ -948,6 +1013,8 @@ The authors have no competing interests to declare.
 \bibitem[Paparrizos et~al.(2022)]{paparrizos2022} Paparrizos, J., Boniol, P., Palpanas, T., Tsay, R.~S., Elmore, A., \& Franklin, M.~J. (2022). Volume under the surface: A new accuracy evaluation measure for time-series anomaly detection. \emph{Proceedings of the VLDB Endowment}, 15(11), 2774--2787. doi:10.14778/3551793.3551830
 
 \bibitem[Pedregosa et~al.(2011)]{pedregosa2011} Pedregosa, F., et~al. (2011). Scikit-learn: Machine learning in Python. \emph{Journal of Machine Learning Research}, 12, 2825--2830.
+
+\bibitem[Poenaru-Olaru et~al.(2024)]{poenaru2024} Poenaru-Olaru, L., Karpova, N., Cruz, L., Rellermeyer, J.~S., \& van Deursen, A. (2024). Is your anomaly detector ready for change? Adapting AIOps solutions to the real world. In \emph{Proc.\ IEEE/ACM 3rd Int.\ Conf.\ on AI Engineering -- Software Engineering for AI (CAIN)} (pp.\ 222--233). doi:10.1145/3644815.3644961
 
 \bibitem[Rabanser et~al.(2019)]{rabanser2019} Rabanser, S., G\"unnemann, S., \& Lipton, Z. (2019). Failing loudly: An empirical study of methods for detecting dataset shift. In \emph{Advances in Neural Information Processing Systems 32}. arXiv:1810.11953
 

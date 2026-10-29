@@ -1,0 +1,208 @@
+{
+  "env": {
+    "machine": "aarch64",
+    "python": "3.12.16",
+    "cgroup_cpus": 1.0,
+    "cgroup_mem_MB": 1024.0,
+    "note": "Docker container with CPU/RAM caps on an Apple-M4 host; not a physical edge device"
+  },
+  "feature_update_per_reading": {
+    "latency_ms_p50": 3.401,
+    "latency_ms_p95": 3.737
+  },
+  "models": {
+    "SKAB|Z-score": {
+      "fit_s": 0.002,
+      "size_KB": 1.0,
+      "load_ms": 0.14,
+      "latency_ms_p50": 0.002,
+      "latency_ms_p95": 0.002,
+      "latency_ms_p99": 0.002,
+      "batch_rows_per_s": 16218319,
+      "peak_rss_MB": 398.5
+    },
+    "SKAB|PCA-recon": {
+      "fit_s": 0.003,
+      "size_KB": 7.7,
+      "load_ms": 0.23,
+      "latency_ms_p50": 0.056,
+      "latency_ms_p95": 0.059,
+      "latency_ms_p99": 0.065,
+      "batch_rows_per_s": 5187301,
+      "peak_rss_MB": 398.5
+    },
+    "SKAB|EllipticEnvelope": {
+      "fit_s": 2.03,
+      "size_KB": 251.4,
+      "load_ms": 0.42,
+      "latency_ms_p50": 0.163,
+      "latency_ms_p95": 0.174,
+      "latency_ms_p99": 0.237,
+      "batch_rows_per_s": 9844842,
+      "peak_rss_MB": 398.4
+    },
+    "SKAB|IsolationForest": {
+      "fit_s": 0.062,
+      "size_KB": 1084.5,
+      "load_ms": 7.81,
+      "latency_ms_p50": 2.341,
+      "latency_ms_p95": 2.718,
+      "latency_ms_p99": 3.386,
+      "batch_rows_per_s": 504931,
+      "peak_rss_MB": 398.4
+    },
+    "SKAB|One-Class SVM": {
+      "fit_s": 1.876,
+      "size_KB": 669.9,
+      "load_ms": 0.42,
+      "latency_ms_p50": 0.124,
+      "latency_ms_p95": 0.144,
+      "latency_ms_p99": 0.18,
+      "batch_rows_per_s": 17562,
+      "peak_rss_MB": 567.6
+    },
+    "SKAB|LOF": {
+      "fit_s": 1.458,
+      "size_KB": 9688.4,
+      "load_ms": 1.02,
+      "latency_ms_p50": 0.518,
+      "latency_ms_p95": 0.836,
+      "latency_ms_p99": 2.387,
+      "batch_rows_per_s": 13074,
+      "peak_rss_MB": 405.8
+    },
+    "SKAB|ECOD": {
+      "fit_s": 0.289,
+      "size_KB": 39343.6,
+      "load_ms": 3.78,
+      "latency_ms_p50": 132.909,
+      "latency_ms_p95": 148.846,
+      "latency_ms_p99": 159.098,
+      "batch_rows_per_s": 34694,
+      "peak_rss_MB": 590.9
+    },
+    "SKAB|COPOD": {
+      "fit_s": 0.302,
+      "size_KB": 39343.6,
+      "load_ms": 3.57,
+      "latency_ms_p50": 148.187,
+      "latency_ms_p95": 163.938,
+      "latency_ms_p99": 188.643,
+      "batch_rows_per_s": 35652,
+      "peak_rss_MB": 581.2
+    },
+    "SKAB|HBOS": {
+      "fit_s": 1.065,
+      "size_KB": 396.9,
+      "load_ms": 0.26,
+      "latency_ms_p50": 0.048,
+      "latency_ms_p95": 0.051,
+      "latency_ms_p99": 0.053,
+      "batch_rows_per_s": 2549187,
+      "peak_rss_MB": 461.5
+    },
+    "SWaT|Z-score": {
+      "fit_s": 0.007,
+      "size_KB": 2.2,
+      "load_ms": 0.16,
+      "latency_ms_p50": 0.002,
+      "latency_ms_p95": 0.002,
+      "latency_ms_p99": 0.003,
+      "batch_rows_per_s": 8370533,
+      "peak_rss_MB": 533.3
+    },
+    "SWaT|PCA-recon": {
+      "fit_s": 0.022,
+      "size_KB": 51.9,
+      "load_ms": 0.26,
+      "latency_ms_p50": 0.071,
+      "latency_ms_p95": 0.075,
+      "latency_ms_p99": 0.079,
+      "batch_rows_per_s": 1087011,
+      "peak_rss_MB": 533.4
+    },
+    "SWaT|EllipticEnvelope": {
+      "fit_s": 5.237,
+      "size_KB": 503.1,
+      "load_ms": 0.43,
+      "latency_ms_p50": 0.182,
+      "latency_ms_p95": 0.19,
+      "latency_ms_p99": 0.193,
+      "batch_rows_per_s": 5090678,
+      "peak_rss_MB": 533.4
+    },
+    "SWaT|IsolationForest": {
+      "fit_s": 0.077,
+      "size_KB": 1148.5,
+      "load_ms": 8.58,
+      "latency_ms_p50": 2.76,
+      "latency_ms_p95": 3.013,
+      "latency_ms_p99": 3.119,
+      "batch_rows_per_s": 659189,
+      "peak_rss_MB": 533.4
+    },
+    "SWaT|One-Class SVM": {
+      "fit_s": 3.79,
+      "size_KB": 1942.4,
+      "load_ms": 0.55,
+      "latency_ms_p50": 0.215,
+      "latency_ms_p95": 0.228,
+      "latency_ms_p99": 0.232,
+      "batch_rows_per_s": 7486,
+      "peak_rss_MB": 634.3
+    },
+    "SWaT|LOF": {
+      "fit_s": 3.245,
+      "size_KB": 22188.4,
+      "load_ms": 2.07,
+      "latency_ms_p50": 1.138,
+      "latency_ms_p95": 1.173,
+      "latency_ms_p99": 1.202,
+      "batch_rows_per_s": 6183,
+      "peak_rss_MB": 533.3
+    },
+    "SWaT|ECOD": {
+      "fit_s": 0.854,
+      "size_KB": 235157.2,
+      "load_ms": 228.41,
+      "latency_ms_p50": 655.395,
+      "latency_ms_p95": 1027.819,
+      "latency_ms_p99": 1370.946,
+      "batch_rows_per_s": 10030,
+      "peak_rss_MB": 1104.8
+    },
+    "SWaT|COPOD": {
+      "fit_s": 0.793,
+      "size_KB": 235157.2,
+      "load_ms": 83.34,
+      "latency_ms_p50": 791.018,
+      "latency_ms_p95": 1111.75,
+      "latency_ms_p99": 1440.341,
+      "batch_rows_per_s": 12405,
+      "peak_rss_MB": 1128.7
+    },
+    "SWaT|HBOS": {
+      "fit_s": 1.1,
+      "size_KB": 801.7,
+      "load_ms": 0.27,
+      "latency_ms_p50": 0.048,
+      "latency_ms_p95": 0.053,
+      "latency_ms_p99": 0.067,
+      "batch_rows_per_s": 871159,
+      "peak_rss_MB": 556.6
+    }
+  },
+  "lstm_ae": {
+    "8_features": {
+      "params": 52744,
+      "latency_ms_p50": 0.848,
+      "latency_ms_p95": 1.148
+    },
+    "24_features": {
+      "params": 57880,
+      "latency_ms_p50": 0.856,
+      "latency_ms_p95": 1.233
+    },
+    "peak_rss_MB": 335.7
+  }
+}
