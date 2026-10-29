@@ -1,6 +1,6 @@
 """Paper-quality figures for the 4-model comparison (ROADMAP C1).
 
-All figures save as 300 DPI PNGs to results/figures/ so they can drop
+All figures save as 300 DPI PNGs to results/initial_analysis/figures/ so they can drop
 straight into the paper. The Agg backend is forced so this runs headless
 (no GUI windows) inside main.py.
 
@@ -23,7 +23,7 @@ import seaborn as sns
 
 from src.features import SENSOR_COLS
 
-FIGURES_DIR = "results/figures"
+FIGURES_DIR = "results/initial_analysis/figures"
 DPI = 300
 MODEL_ORDER = ["Z-score", "One-Class SVM", "LOF", "PCA-recon",
                "EllipticEnvelope", "IsolationForest"]
@@ -148,7 +148,7 @@ def plot_drift_adaptation(static_records, adaptive_records, out_path=None,
     the static model sits on that floor across the unseen valve regimes
     (it can only flag-everything there), while the adaptive model rises
     above it after drift-triggered retrains. Driven by the per-batch records
-    in results/concept_drift.json, so it regenerates independently of
+    in results/initial_analysis/concept_drift.json, so it regenerates independently of
     main.py's 6-model figures.
     """
     out_path = out_path or os.path.join(FIGURES_DIR, "drift_adaptation.png")

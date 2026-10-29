@@ -61,7 +61,7 @@ from src.evaluate import evaluate
 from src.drift import DriftDetector, drift_score
 from src.visualize import plot_drift_adaptation
 
-RESULTS_PATH = "results/concept_drift.json"
+RESULTS_PATH = "results/initial_analysis/concept_drift.json"
 INITIAL_FAMILY = "other"  # the only regime the initial model is trained on
 CONTAMINATION_GRID = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
 

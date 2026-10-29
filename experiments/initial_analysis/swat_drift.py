@@ -40,7 +40,7 @@ from src.evaluate import evaluate
 from src.drift import DriftDetector, drift_score
 from src.visualize import plot_drift_adaptation
 
-RESULTS_PATH = "results/swat_drift.json"
+RESULTS_PATH = "results/initial_analysis/swat_drift.json"
 CONTAMINATION = 0.05
 N_INIT = 50000            # initial training window (~14 h of normal at 1 Hz)
 BATCH = 10000            # streamed normal batch size (~2.8 h)
@@ -129,7 +129,7 @@ def main():
             "static": static_records, "adaptive": adaptive_records,
         }, f, indent=2)
     fig = plot_drift_adaptation(static_records, adaptive_records,
-                                out_path="results/figures/swat_drift_adaptation.png")
+                                out_path="results/initial_analysis/figures/swat_drift_adaptation.png")
     print(f"\nsaved: {RESULTS_PATH}\nsaved figure: {fig}")
     print(f"wall time: {time.perf_counter()-t0:.1f}s")
 

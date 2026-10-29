@@ -12,7 +12,7 @@ import glob
 import numpy as np
 import pandas as pd
 
-SKAB_ROOT = "SKAB"
+SKAB_ROOT = "data/SKAB"
 FAULT_FOLDERS = ("other", "valve1", "valve2")
 
 

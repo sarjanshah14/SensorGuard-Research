@@ -111,18 +111,27 @@ def main():
     out = {"config": {"n_init": N_INIT, "batch": BATCH, "window_batches": WINDOW, "ks_threshold": ks_thr,
                       "n_batches": len(batches), "normal_week_batches": normal_batches},
            "static_if_normal_fpr_trajectory": traj, "runs": {}}
+    part = OUT + ".partial"   # saved after every group so an interrupted run resumes
+    if os.path.exists(part):
+        out["runs"] = json.load(open(part))["runs"]
+        print(f"resuming: {len(out['runs'])} runs already done", flush=True)
     for name in MODELS:
-        p, r, rs, ks = run(name, Xinit, batches, ybat, "static", "all")
-        out["runs"][f"{name}|static"] = summarise(p, y, seg, r, rs, ks)
+        if f"{name}|static" not in out["runs"]:
+            p, r, rs, ks = run(name, Xinit, batches, ybat, "static", "all")
+            out["runs"][f"{name}|static"] = summarise(p, y, seg, r, rs, ks)
         for sel in ["oracle", "pred_normal", "all"]:
+            if f"{name}|periodic{PERIODS[-1]}|{sel}" in out["runs"]:
+                continue
             p, r, rs, ks = run(name, Xinit, batches, ybat, "ks", sel, ks_thr=ks_thr)
             out["runs"][f"{name}|ks|{sel}"] = summarise(p, y, seg, r, rs, ks)
             for P in PERIODS:
                 p, r2, rs, ks = run(name, Xinit, batches, ybat, "periodic", sel, period=P)
                 out["runs"][f"{name}|periodic{P}|{sel}"] = {**summarise(p, y, seg, r2, rs, ks), "period_batches": P}
+            json.dump(out, open(part, "w"))
             print(f"  {name} {sel} done", flush=True)
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2)
+    os.remove(part)
     print("static IF normal-week FPR (first, mid, last):", traj[0], traj[len(traj) // 2], traj[-1])
     for k, v in out["runs"].items():
         ap_ = v["attack_period"]

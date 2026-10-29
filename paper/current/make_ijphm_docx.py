@@ -1,6 +1,6 @@
 """Convert paper2_revised.tex to an IJPHM Word manuscript.
 
-Run: python paper/make_ijphm_docx.py   -> paper/Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx
+Run: python paper/current/make_ijphm_docx.py   -> paper/current/Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx
 
 1. Rewrite the LaTeX so pandoc can handle it: natbib citations become APA text
    from the \\bibitem labels; simple numeric maths becomes plain text.
@@ -20,7 +20,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 TEX = HERE / "paper2_revised.tex"
-TEMPLATE = HERE.parent / "ijphm" / "ijPHM-FullPaperTemplate.docx"
+TEMPLATE = HERE.parent / "templates" / "ijphm" / "ijPHM-FullPaperTemplate.docx"
 OUT = HERE / "Shah_IJPHM_Protocol_Sensitivity_Industrial_Anomaly_Detection.docx"
 UNNUMBERED = {"References", "Data and Code Availability", "Disclosure of Interests"}
 LICENCE = ("Sarjan Shah et al. This is an open-access article distributed under the terms of the Creative "
@@ -135,7 +135,7 @@ def main():
         (td / "in.tex").write_text(rewrite(src, lab))
         raw = td / "raw.docx"
         subprocess.run(["pandoc", str(td / "in.tex"), "-o", str(raw), f"--reference-doc={TEMPLATE}",
-                        f"--resource-path={HERE / 'overleaf_paper2' / 'figures'}:{HERE.parent / 'results' / 'revised' / 'figures'}"],
+                        f"--resource-path={HERE / 'overleaf_paper2' / 'figures'}:{HERE.parent.parent / 'results' / 'revised' / 'figures'}"],
                        check=True)
         with zipfile.ZipFile(TEMPLATE) as z:
             tpl_xml = z.read("word/document.xml").decode()

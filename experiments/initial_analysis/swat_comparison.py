@@ -40,7 +40,7 @@ from src.models import (
 from src.evaluate import evaluate
 from src.visualize import plot_model_comparison, plot_confusion_matrices
 
-RESULTS_PATH = "results/swat_metrics.json"
+RESULTS_PATH = "results/initial_analysis/swat_metrics.json"
 DOWNSAMPLE = 1
 CONTAMINATION_GRID = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
 
@@ -140,8 +140,8 @@ def main():
 
     with open(RESULTS_PATH, "w") as f:
         json.dump({"info": info, "contamination": contamination, "results": results}, f, indent=2)
-    plot_model_comparison(results, out_path="results/figures/swat_model_comparison.png")
-    plot_confusion_matrices(results, out_path="results/figures/swat_confusion_matrices.png")
+    plot_model_comparison(results, out_path="results/initial_analysis/figures/swat_model_comparison.png")
+    plot_confusion_matrices(results, out_path="results/initial_analysis/figures/swat_confusion_matrices.png")
     print(f"\nsaved metrics: {RESULTS_PATH}")
     print(f"total wall time: {time.perf_counter() - t0:.1f}s")
 

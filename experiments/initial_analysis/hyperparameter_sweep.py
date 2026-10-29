@@ -6,7 +6,7 @@ original brief as nominal defaults (0.1, 0.1, 20) — never tuned for SKAB.
 Z-score's threshold (3.0 std devs) is in the same boat.
 
 To tune these honestly we cannot just try values and check against
-results/metrics.json's test set — picking a hyperparameter based on test
+results/initial_analysis/metrics.json's test set — picking a hyperparameter based on test
 performance leaks the test set into the "final" numbers, the same way
 checking the answer key while studying would. So fault_train (the 80%
 chronological slice already held out from fault_test) is split *again*,

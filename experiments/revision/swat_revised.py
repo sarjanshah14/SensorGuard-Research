@@ -46,12 +46,16 @@ SENSORS = CONTINUOUS_SENSORS if SOURCE == "official" else [c for c in CONTINUOUS
 CAP = 20000
 STARTUP = 21600 if SOURCE == "reupload" else 0   # official loader starts at the same instant (22 Dec 22:00)
 TRAIN_END = pd.Timestamp("2015-12-22 16:00:00") + pd.Timedelta(seconds=int(496800 * 0.85))
-OFFICIAL_DIR = "external_data/swat_official"   # pickles converted once from the iTrust .xlsx files
+OFFICIAL_DIR = "data/external/swat_official"   # pickles converted once from the iTrust .xlsx files
 
 
 def load_official():
     def rd(name):
-        df = pd.read_pickle(f"{OFFICIAL_DIR}/{name}.pkl")
+        pkl = f"{OFFICIAL_DIR}/{name}.pkl"
+        if not os.path.exists(pkl):   # first run: convert the iTrust .xlsx once (needs openpyxl, ~1 min each)
+            os.makedirs(OFFICIAL_DIR, exist_ok=True)
+            pd.read_excel(f"data/SWaT_official_xlsx/{name}.xlsx", header=1).to_pickle(pkl)
+        df = pd.read_pickle(pkl)
         df.columns = df.columns.str.strip()
         df.index = pd.to_datetime(df["Timestamp"].astype(str).str.strip(), format="%d/%m/%Y %I:%M:%S %p")
         lab = df["Normal/Attack"].astype(str).str.replace(" ", "")

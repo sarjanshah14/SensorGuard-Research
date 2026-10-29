@@ -1,21 +1,20 @@
 env/
-SensorGuard/
 __pycache__/
 *.pyc
 .DS_Store
 
-# Trained model bundles are regenerable artifacts of `python main.py`
-results/models/*.joblib
+# Datasets: SKAB is public and tracked; SWaT/WADI are iTrust-licensed and must never be committed
+data/SWaT_official_xlsx/
+data/external/
+data/downloads/
 
-# Regenerable / third-party, not worth tracking
-paper/overleaf_paper1.zip
-paper/overleaf_paper1/
-Word+Latex-Template/
-paper/overleaf_paper2/
-paper/overleaf_paper2.zip
-external_data/
+# Regenerable artefacts
+results/initial_analysis/models/*.joblib
+paper/current/overleaf_paper2/
+paper/current/overleaf_paper2.zip
+paper/icacs_2026/overleaf_paper1/
+paper/icacs_2026/overleaf_paper1.zip
+paper/icacs_2026/Word+Latex-Template/
 
-# iTrust-licensed data: never commit
-SWAT/
-d1.zip
-d2.zip
+# Old hackathon repo kept for reference only
+archive/SensorGuard/

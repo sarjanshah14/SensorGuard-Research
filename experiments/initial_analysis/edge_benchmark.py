@@ -43,7 +43,7 @@ from src.models import (
 from src.evaluate import evaluate
 from src.drift import drift_score
 
-RESULTS_PATH = "results/edge_benchmark.json"
+RESULTS_PATH = "results/initial_analysis/edge_benchmark.json"
 
 
 def peak_ram_mb():

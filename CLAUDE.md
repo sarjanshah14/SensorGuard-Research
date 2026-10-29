@@ -4,42 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-SensorGuard-Research is a complete, working research pipeline (data → features
-→ 6 models → evaluation → figures → persistence) for the paper "Comparative
-Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor
-Anomaly Detection in Industrial Systems." The ICACS-2026 version was rejected; a full
-revision lives in `revision/`, `experiments/revision/`, `results/revised/` and
-`paper/paper2_revised.tex`. Start from `CHECKPOINT.md`. Layout:
+Research paper by Sarjan Shah and Prof. Abhi Shah: *Protocol Sensitivity in Unsupervised
+Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost*,
+targeting IJPHM. The first version (ICACS-2026) was rejected; the current work is the
+revision. **Start from `CHECKPOINT.md`.** Layout:
 
-- `README.md` — project overview, dataset info, and how to run things.
-- `WALKTHROUGH.md` — the plain-English guide to everything built and why;
-  read this first to review results without reading code.
-- `ROADMAP.md` / `DEVLOG.md` / `PROGRESS.md` — the living plan, the detailed
-  narrative log, and the one-line-per-session index (see "Logging convention"
-  below).
-- `SKAB/` — the Skoltech Anomaly Benchmark (SKAB) dataset (CSV files).
-- `env/` — local Python 3.14 virtual environment. Activate with `source env/bin/activate`.
-- `src/` — the pipeline: `preprocessing.py` (loading/splitting), `features.py`
-  (feature engineering), `models.py` (the 6 models), `evaluate.py` (scoring),
-  `postprocess.py` (a rejected smoothing idea, kept for the record),
-  `persist.py` (model save/load), `visualize.py` (paper figures).
-- `main.py` — runs the whole pipeline end to end; regenerates
-  `results/metrics.json`, `results/figures/`, and `results/models/`.
-- `experiments/` — one-off ablation/decision scripts backing specific
-  methodology choices (training strategy, hyperparameter sweep, temporal
-  smoothing, feature ablation, extra models) — kept as evidence, not dead code.
-- `skab.py` — Streamlit app for exploring the dataset and viewing model
-  results (`streamlit run skab.py`).
-- `results/` — official metrics, figures, and the saved model bundle.
+- `README.md` — overview, layout, reproduce commands, data access.
+- `docs/` — `ROADMAP.md`, `DEVLOG.md`, `PROGRESS.md` (logging convention below),
+  `WALKTHROUGH.md` (first-version guide), `REFERENCES.md`; `docs/revision/` holds the
+  revision reports 01–11.
+- `data/` — `SKAB/` (tracked); `SWaT_official_xlsx/`, `external/` (HAI, WADI, converted
+  SWaT) and `downloads/` are iTrust-licensed or regenerable and must never be committed.
+- `src/` — shared code: `preprocessing.py`, `features.py`, `deep_baseline.py`, `drift.py`,
+  `swat.py`, plus first-version `models.py`, `evaluate.py`, `visualize.py`, `persist.py`.
+- `experiments/revision/` — experiments behind the current paper (`common.py`,
+  `skab_revised.py`, `swat_revised.py`, `wadi_revised.py`, `hai_revised.py`,
+  `drift_revised.py`, `edge_revised.py`, `figures_revised.py`).
+- `experiments/initial_analysis/` — first-version scripts and `main.py`, kept as evidence.
+- `results/revised/` (current) and `results/initial_analysis/` (first version).
+- `paper/current/` — `paper2_revised.tex`, the IJPHM Word file, Overleaf zip and
+  `make_ijphm_docx.py`; `paper/icacs_2026/` — rejected version; `paper/templates/ijphm/`.
+- `apps/skab.py` — Streamlit explorer (`streamlit run apps/skab.py`).
+- `docker/Dockerfile.edge2` — capped container for the cost benchmark.
 
 ## Dataset: SKAB
 
-`SKAB/` holds multivariate time-series sensor readings from a testbed with an artificially induced anomaly-causing valve, organized as:
+`data/SKAB/` holds multivariate time-series sensor readings from a testbed with an artificially induced anomaly-causing valve, organized as:
 
-- `SKAB/anomaly-free/anomaly-free.csv` — baseline run with no anomalies (no `anomaly`/`changepoint` columns).
-- `SKAB/other/*.csv` — runs with miscellaneous anomalies (14 files).
-- `SKAB/valve1/*.csv` — runs with anomalies from valve 1 (16 files).
-- `SKAB/valve2/*.csv` — runs with anomalies from valve 2 (4 files).
+- `data/SKAB/anomaly-free/anomaly-free.csv` — baseline run with no anomalies (no `anomaly`/`changepoint` columns).
+- `data/SKAB/other/*.csv` — runs with miscellaneous anomalies (14 files).
+- `data/SKAB/valve1/*.csv` — runs with anomalies from valve 1 (16 files).
+- `data/SKAB/valve2/*.csv` — runs with anomalies from valve 2 (4 files).
 
 All CSVs are semicolon-delimited (`;`) with columns:
 `datetime;Accelerometer1RMS;Accelerometer2RMS;Current;Pressure;Temperature;Thermocouple;Voltage;Volume Flow RateRMS[;anomaly;changepoint]`
@@ -49,14 +44,14 @@ All CSVs are semicolon-delimited (`;`) with columns:
 Sarjan reads/reviews/verifies; Claude drives the implementation. To make that
 possible, every work session must update two files (not just one):
 
-- `PROGRESS.md` — one line per session (non-negotiable, format:
+- `docs/PROGRESS.md` — one line per session (non-negotiable, format:
   `[DATE] [duration] what was done`).
-- `DEVLOG.md` — the detailed narrative: what we set out to do, the steps
+- `docs/DEVLOG.md` — the detailed narrative: what we set out to do, the steps
   taken and why, problems hit and exactly how they were diagnosed/fixed,
   and a "plain language" outcome summary at the end of each entry. This is
   the file to read back later to understand *why* something is the way it
   is, not just *that* it changed.
-- `ROADMAP.md` — the forward-looking checklist: every checkpoint from "no
+- `docs/ROADMAP.md` — the forward-looking checklist: every checkpoint from "no
   code" to "submitted paper," each elaborated (what/why/depends-on), with
   checkboxes ticked as they complete. Update this whenever a checkpoint
   finishes or the plan changes — it's the single source of truth for "what's
@@ -67,18 +62,12 @@ plain-language summary in chat: what was done and what the outcome was.
 
 ## Development Commands
 
-Always run Python commands within the activated virtual environment (`source env/bin/activate`).
+Always run Python commands within the activated virtual environment (`source env/bin/activate`), from the repo root.
 
-- **Run the full pipeline** (regenerates `results/metrics.json`, the 4
-  figures, and the saved model bundle):
-  ```bash
-  python main.py
-  ```
-- **Launch the interactive Streamlit app** (dataset explorer + Model Results tab):
-  ```bash
-  streamlit run skab.py
-  ```
-- **Re-run a specific methodology experiment** (run as a module so `src/` is importable):
-  ```bash
-  python -m experiments.hyperparameter_sweep
-  ```
+- Current paper experiments: `python -m experiments.revision.<name>` (SWaT on official
+  data: `SWAT_SOURCE=official python -m experiments.revision.swat_revised`).
+- Figures: `python -m experiments.revision.figures_revised`.
+- IJPHM Word manuscript: `python paper/current/make_ijphm_docx.py`.
+- First-version pipeline: `python -m experiments.initial_analysis.main`.
+- Streamlit app: `streamlit run apps/skab.py`.
+- No local LaTeX: compile `paper/current/overleaf_paper2.zip` on Overleaf.

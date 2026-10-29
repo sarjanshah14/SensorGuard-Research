@@ -4,7 +4,7 @@ chart, and the SWaT drift-motivation chart. Reads the saved result JSONs
 (and, for drift motivation, recomputes a small trajectory from SWaT). All
 figures are our own, generated from our own results.
 
-Run: python -m experiments.make_figures
+Run: python -m experiments.initial_analysis.make_figures
 """
 
 import json
@@ -18,13 +18,13 @@ from src.visualize import (
 
 
 def cross_dataset():
-    skab = json.load(open("results/metrics.json"))
-    swat = json.load(open("results/swat_metrics.json"))["results"]
+    skab = json.load(open("results/initial_analysis/metrics.json"))
+    swat = json.load(open("results/initial_analysis/swat_metrics.json"))["results"]
     order = ["Z-score", "One-Class SVM", "LOF", "PCA-recon",
              "EllipticEnvelope", "IsolationForest"]
     # append the LSTM-AE deep baseline if it has been run
     try:
-        deep = json.load(open("results/deep_baseline.json"))
+        deep = json.load(open("results/initial_analysis/deep_baseline.json"))
         skab = skab + [deep["SKAB"]]
         swat = swat + [deep["SWaT"]]
         order = order + ["LSTM-AE"]
@@ -36,7 +36,7 @@ def cross_dataset():
 
 
 def edge():
-    e = json.load(open("results/edge_benchmark.json"))
+    e = json.load(open("results/initial_analysis/edge_benchmark.json"))
     p = plot_edge_benchmark(e["skab"], ram_mb=e.get("peak_ram_mb"),
                             cpu=e.get("env", {}).get("cpu_limit_cgroup"))
     print(f"  {p}")
@@ -65,20 +65,20 @@ def swat_drift_motivation():
         ks.append(float(drift_score(ref_s, chunk)))
 
     json.dump({"hours": pos_h, "fp_rate": fp, "ks_drift": ks},
-              open("results/swat_drift_motivation.json", "w"), indent=2)
+              open("results/initial_analysis/swat_drift_motivation.json", "w"), indent=2)
     p = plot_swat_drift_motivation(pos_h, fp, ks)
     print(f"  {p}")
 
 
 def deep_figures():
     """Training-loss curves and reconstruction-error distributions for the
-    LSTM-AE, from results/deep_baseline_arrays.npz (skip if not run yet)."""
+    LSTM-AE, from results/initial_analysis/deep_baseline_arrays.npz (skip if not run yet)."""
     try:
-        a = np.load("results/deep_baseline_arrays.npz")
+        a = np.load("results/initial_analysis/deep_baseline_arrays.npz")
     except FileNotFoundError:
         print("  (deep_baseline_arrays.npz not found; run experiments.deep_baseline first)")
         return
-    deep = json.load(open("results/deep_baseline.json"))
+    deep = json.load(open("results/initial_analysis/deep_baseline.json"))
     losses = {ds: a[f"{ds}_losses"] for ds in ("SKAB", "SWaT")}
     print(f"  {plot_training_loss(losses)}")
     panels = []

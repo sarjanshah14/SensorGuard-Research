@@ -2,7 +2,7 @@
 
 Run: python -m experiments.revision.wadi_revised   -> results/revised/wadi.json
 Data: iTrust WADI.A2_19 Nov 2019 (WADI_14days_new.csv, WADI_attackdataLABLE.csv),
-expected in external_data/wadi/WADI.A2_19 Nov 2019/.
+expected in data/external/wadi/WADI.A2_19 Nov 2019/.
 
 WADI = water-distribution testbed (extension of SWaT), 127 points at 1 Hz. Protocol:
   - normal run: drop all-empty columns and the first 21,600 rows (start-up, as for
@@ -33,7 +33,7 @@ from experiments.revision.common import (
     threshold_free, thr_label_free, thr_val_mcc,
 )
 
-DIR = "external_data/wadi/WADI.A2_19 Nov 2019"
+DIR = "data/external/wadi/WADI.A2_19 Nov 2019"
 # WADI_EXCLUDE: comma-separated sensors to drop (sensitivity check for the drifting analysers)
 EXCLUDE = [c for c in os.environ.get("WADI_EXCLUDE", "").split(",") if c]
 OUT = "results/revised/wadi_excl.json" if EXCLUDE else "results/revised/wadi.json"

@@ -1,7 +1,7 @@
 """HAI 21.03 as a third dataset (revision E9), same protocol as SWaT.
 
 Run: python -m experiments.revision.hai_revised   -> results/revised/hai.json
-Data: github.com/icsdataset/hai, folder hai-21.03 (expected in external_data/hai/hai-21.03).
+Data: github.com/icsdataset/hai, folder hai-21.03 (expected in data/external/hai/hai-21.03).
 
 HAI = HIL-augmented ICS testbed: a GE steam turbine (P1), Emerson boiler (P2),
 FESTO water treatment (P3) coupled through a hardware-in-the-loop simulator (P4),
@@ -32,7 +32,7 @@ from experiments.revision.common import (
     threshold_free, thr_label_free, thr_val_mcc,
 )
 
-DIR = "external_data/hai/hai-21.03"
+DIR = "data/external/hai/hai-21.03"
 OUT = "results/revised/hai.json"
 CAP = 20000
 CAP_ECDF = 100000  # ECOD/COPOD on all 850k x 275 training rows exhausted 16 GB RAM

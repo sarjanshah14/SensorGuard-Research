@@ -22,9 +22,9 @@ from plotly.subplots import make_subplots
 # Constants & Config
 # ─────────────────────────────────────────────────────────────────────────────
 
-SKAB_ROOT = "SKAB"
+SKAB_ROOT = "data/SKAB"
 
-RESULTS_DIR = "results"
+RESULTS_DIR = "results/initial_analysis"
 FIGURES_DIR = os.path.join(RESULTS_DIR, "figures")
 METRICS_PATH = os.path.join(RESULTS_DIR, "metrics.json")
 
@@ -989,13 +989,13 @@ with tab_results:
     st.subheader("🏆 Model Results — 6-Model Comparison")
     st.caption(
         "The real trained-model results from the research pipeline. "
-        "Run `python main.py` to (re)generate `results/metrics.json` and the figures, "
+        "Run `python -m experiments.initial_analysis.main` to (re)generate `results/metrics.json` and the figures, "
         "then reload this page to see updated numbers."
     )
 
     if not os.path.exists(METRICS_PATH):
         st.warning(
-            "No results found yet. Run **`python main.py`** from the project root "
+            "No results found yet. Run **`python -m experiments.initial_analysis.main`** from the project root "
             "to train the 6 models and generate the metrics + figures, then reload."
         )
     else:
@@ -1048,5 +1048,5 @@ with tab_results:
                 st.image(fpath, use_container_width=True)
                 st.caption(explanation)
             else:
-                st.caption(f"_`{fname}` not found — run `python main.py` to generate it._")
+                st.caption(f"_`{fname}` not found — run `python -m experiments.initial_analysis.main` to generate it._")
             st.markdown("")

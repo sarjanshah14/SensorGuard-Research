@@ -2,8 +2,8 @@
 splits as the classical comparison, and print / save the results so the
 classical-vs-deep gap can be read directly.
 
-Run: python -m experiments.deep_baseline
-Saves: results/deep_baseline.json
+Run: python -m experiments.initial_analysis.deep_baseline
+Saves: results/initial_analysis/deep_baseline.json
 """
 
 import json
@@ -67,10 +67,10 @@ def main():
         print(f"[{name}] params={m['n_params']}  size={m['size_KB']}KB  "
               f"train={m['train_time_s']}s  infer={m['infer_ms_per_sample']}ms/sample")
 
-    with open("results/deep_baseline.json", "w") as f:
+    with open("results/initial_analysis/deep_baseline.json", "w") as f:
         json.dump(results, f, indent=2)
-    np.savez("results/deep_baseline_arrays.npz", **arrays)
-    print("\nsaved: results/deep_baseline.json + results/deep_baseline_arrays.npz")
+    np.savez("results/initial_analysis/deep_baseline_arrays.npz", **arrays)
+    print("\nsaved: results/initial_analysis/deep_baseline.json + results/initial_analysis/deep_baseline_arrays.npz")
 
     # side-by-side reminder of the classical leaders (from the paper tables)
     print("\nfor reference, classical MCC on the same test splits:")

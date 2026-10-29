@@ -12,7 +12,7 @@ import os
 
 import joblib
 
-MODELS_DIR = "results/models"
+MODELS_DIR = "results/initial_analysis/models"
 ARTIFACTS_PATH = os.path.join(MODELS_DIR, "anomaly_models.joblib")
 
 

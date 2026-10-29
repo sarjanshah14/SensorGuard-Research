@@ -78,7 +78,7 @@ def run_all_models(X_train, X_test, y_test, return_predictions: bool = False,
     return (results, *extras) if extras else results
 
 
-def compare_models(results: list[dict], out_path: str = "results/metrics.json") -> pd.DataFrame:
+def compare_models(results: list[dict], out_path: str = "results/initial_analysis/metrics.json") -> pd.DataFrame:
     df = pd.DataFrame(results)[
         ["model", "precision", "recall", "f1", "train_time_s", "inference_time_s"]
     ]

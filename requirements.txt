@@ -9,3 +9,7 @@ streamlit==1.58.0
 plotly==6.8.0
 torch==2.12.1
 kagglehub==1.0.2
+numba==0.68.1
+openpyxl==3.1.5
+pyod==3.6.7
+threadpoolctl==3.6.0

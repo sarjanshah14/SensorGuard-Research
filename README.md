@@ -1,83 +1,54 @@
-# SensorGuard-Research
+# Protocol Sensitivity in Unsupervised Industrial Anomaly Detection
 
-**Paper:** "Comparative Evaluation of Unsupervised Machine Learning Models
-for Multivariate Sensor Anomaly Detection in Industrial Systems"
+Sarjan Shah and Prof. Abhi Shah, Department of Information Technology, Lok Jagruti University.
 
-This repository compares 6 unsupervised anomaly-detection models (Z-score,
-One-Class SVM, LOF, PCA-reconstruction, Elliptic Envelope, Isolation Forest)
-on the real Skoltech Anomaly Benchmark (SKAB) dataset — a multivariate
-sensor time series from a water-circulation testbed with induced valve
-faults. Isolation Forest is the best performer (F1 0.466); see
-`results/metrics.json` for full numbers.
+Paper: *Protocol Sensitivity in Unsupervised Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost* (target: International Journal of Prognostics and Health Management, IJPHM).
 
-**New to this repo? Read [`WALKTHROUGH.md`](WALKTHROUGH.md) first** — it's
-a plain-English guide to every file, every result, and every figure, written
-so you can review everything without reading code.
+Ten unsupervised detectors (z-score, PCA reconstruction, Elliptic Envelope, Isolation Forest, One-Class SVM, LOF, ECOD, COPOD, HBOS, LSTM autoencoder) are compared on four industrial benchmarks (SKAB, SWaT, WADI, HAI) under documented protocols. The study measures how the split definition, threshold rule, sensor set and retraining data change the conclusions, and the per-reading cost in a 1-CPU / 1 GB container.
 
----
+**New here? Start with `CHECKPOINT.md`.** For a plain-language tour, see the explainer page linked there.
 
-## Dataset: SKAB (Skoltech Anomaly Benchmark)
-
-The `SKAB/` directory contains multivariate time-series sensor readings
-collected from a water circulation testbed, with artificially induced valve
-anomalies:
-
-- **`SKAB/anomaly-free/anomaly-free.csv`**: Baseline run under normal conditions (no label columns).
-- **`SKAB/valve1/*.csv`**: 16 runs with anomalies induced at valve 1.
-- **`SKAB/valve2/*.csv`**: 4 runs with anomalies induced at valve 2.
-- **`SKAB/other/*.csv`**: 14 runs with miscellaneous other anomalies.
-
-The CSVs are semicolon-delimited (`;`), 1 reading/second, with columns:
+## Layout
 
 ```
-datetime;Accelerometer1RMS;Accelerometer2RMS;Current;Pressure;Temperature;Thermocouple;Voltage;Volume Flow RateRMS[;anomaly;changepoint]
+README.md  CHECKPOINT.md  CLAUDE.md  requirements.txt
+docs/                 ROADMAP, DEVLOG, PROGRESS, WALKTHROUGH, REFERENCES
+docs/revision/        revision reports 01-11 (audit, literature, novelty, change log, venues)
+data/SKAB/            SKAB benchmark (public, tracked)
+data/SWaT_official_xlsx/  official iTrust SWaT files (licensed, NOT tracked)
+data/external/        HAI, WADI, converted SWaT (NOT tracked)
+data/downloads/       original zip downloads (NOT tracked)
+src/                  shared pipeline code (features, loaders, deep baseline, drift score)
+experiments/revision/ experiments behind the current paper
+experiments/initial_analysis/  scripts of the first (ICACS-2026) version, kept as evidence
+results/revised/      results and figures of the current paper
+results/initial_analysis/  results of the first version
+paper/current/        current paper: .tex, IJPHM Word file, Overleaf zip, Word build script
+paper/icacs_2026/     rejected ICACS-2026 version and its template
+paper/templates/ijphm/  IJPHM Word templates
+apps/skab.py          Streamlit explorer for SKAB and the first-version results
+docker/               capped-container image for the cost benchmark
+archive/SensorGuard/  old hackathon repo (reference only, not tracked)
 ```
 
-`anomaly`/`changepoint` are binary labels present only on the fault-run files.
-
----
-
-## Repository layout
-
-```
-src/            the pipeline: preprocessing, feature engineering, the 6 models, evaluation, persistence
-main.py         runs the whole pipeline end to end
-experiments/    one-off scripts behind specific methodology decisions (kept as evidence)
-results/        official metrics.json, the 4 paper figures, and the saved model bundle
-skab.py         Streamlit app: dataset explorer + live model-results viewer
-ROADMAP.md      the checkpoint plan, ticked as work completes
-DEVLOG.md       detailed narrative of every session: what/why/how, including dead ends
-PROGRESS.md     one-line-per-session index
-WALKTHROUGH.md  the guided tour — start here
-```
-
----
-
-## Getting started
-
-### 1. Environment
-
-A pre-configured Python 3.14 virtual environment lives in `env/`:
+## Reproduce
 
 ```bash
 source env/bin/activate
+python -m experiments.revision.common                    # metric self-check
+python -m experiments.revision.skab_revised              # ~2 min
+SWAT_SOURCE=official python -m experiments.revision.swat_revised   # ~15 min
+SWAT_SOURCE=official python -m experiments.revision.drift_revised  # ~70 min
+python -m experiments.revision.hai_revised               # ~15 min
+python -m experiments.revision.wadi_revised              # ~20 min
+python -m experiments.revision.figures_revised
+python paper/current/make_ijphm_docx.py                  # IJPHM Word manuscript
 ```
 
-### 2. Reproduce the results
+Cost benchmark (Docker): see `docs/revision/09_reproducibility_package/README.md`.
 
-```bash
-python main.py
-```
+## Data access
 
-This regenerates `results/metrics.json`, the 4 figures in `results/figures/`,
-and the saved model bundle in `results/models/`. Takes well under a minute.
-
-### 3. Explore interactively
-
-```bash
-streamlit run skab.py
-```
-
-Opens a browser tab with the raw-data explorer (sensor graphs, data quality,
-anomaly close-ups, correlation insights) plus a **"🏆 Model Results"** tab
-showing the trained-model comparison and figures.
+- **SKAB**: public (github.com/waico/SKAB), included in `data/SKAB/`.
+- **HAI 21.03**: public (github.com/icsdataset/hai); place `hai-21.03/` in `data/external/hai/`.
+- **SWaT (A1 & A2, Dec 2015) and WADI (A2, 2019)**: request from iTrust, SUTD (https://itrust.sutd.edu.sg/itrust-labs_datasets/). Licensed: do not redistribute or commit. Put the SWaT `.xlsx` files in `data/SWaT_official_xlsx/` and the WADI folder in `data/external/wadi/`.
