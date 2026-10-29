@@ -1357,3 +1357,9 @@ local compile, because this machine has no LaTeX installed.
 The abstract and the RQ3 answer said retraining helped "only when data were known to be normal" and that "label-free retraining failed". That holds for Isolation Forest but not for Elliptic Envelope (predicted-normal MCC 0.70-0.75; all-rows 0.33-0.53 only with 40+ refits). Both now name the detector. The affiliation, copied from the ICACS paper as "Lok Jagruti University, Vadodara", was corrected to "Lok Jagruti Kendra University, Ahmedabad" after Sarjan confirmed it. The footer's "2026 ***" stays: the paper number is assigned after acceptance.
 
 **Plain language:** the abstract no longer over-generalises one detector's failure, and the university name and city are right.
+
+## Session 31 — 2026-10-30 — Fifth external review: last consistency fixes
+
+Three wording/consistency corrections, no new experiments. (1) SKAB: only the top two were compared with a paired test, so "none is distinguishable from the next best" became "the paired comparison of the two highest-scoring did not establish a significant difference". (2) Latency: the abstract's "about 700 ms" contradicted Table 8 (COPOD p50 739 ms, ECOD p99 1,117 ms); abstract, discussion and RQ4 now say median up to about 740 ms with the 99th percentile up to 1.1 s. (3) Table 9's retraining row now separates Isolation Forest (oracle 0.17 -> 0.57; predicted-normal collapse, MCC <= 0.07; all rows MCC <= 0.30) from Elliptic Envelope (predicted-normal 0.70-0.75; all rows 0.33-0.53 with 40+ refits), all checked against drift_official.json. "Continuous retraining" (P = 1) is now "every-batch retraining". Abstract numbers re-checked against results JSON.
+
+**Plain language:** the summary statements now say exactly what each test and table shows.

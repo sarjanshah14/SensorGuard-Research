@@ -42,7 +42,8 @@ and HAI (turbine, boiler and water-treatment hardware-in-the-loop testbed). On S
 all ten detectors reach AUROC $0.81$--$0.86$ with overlapping intervals, and the two
 highest-scoring are not significantly different (equivalence of all ten was not formally
 tested); on SKAB with pooled training all detectors are close to chance (best AUROC
-$0.575$, CI $0.504$--$0.645$) and none is distinguishable from the next best, while
+$0.575$, CI $0.504$--$0.645$) and the paired comparison of the two highest-scoring did
+not establish a significant difference, while
 SKAB's per-run protocol yields run-level AUROC up to $0.79$ and an inverted ranking;
 on HAI, PCA reconstruction and LOF lead ($0.93$, $0.92$) and Elliptic Envelope trails
 ($0.66$). Protocol choices moved MCC by up to $0.8$ for the same detector. Thresholds
@@ -61,7 +62,8 @@ selection made it collapse or absorb attacks into its normal model; Elliptic Env
 stable under predicted-normal selection, although frequent retraining on all recent rows
 degraded it. A drift trigger saved some refits relative to a schedule, but its checks cost
 more than refitting every hour. Single-reading
-cost in a one-CPU, 1\,GB container ranged from microseconds to about 700\,ms. The
+latency in a one-CPU, 1\,GB container ranged from microseconds to about 740\,ms (median;
+99th percentile up to 1.1\,s for ECOD). The
 results argue for choosing detectors by threshold stability and retraining needs and
 for reporting protocols in enough detail to tell which of these a benchmark number
 measures.
@@ -123,7 +125,7 @@ training protocol, the threshold rule and the sensor set change the measured
 performance and the ranking of detectors, including a check of a public SWaT re-upload
 against the official release (Section~\ref{sec:protocol}).
 \item A retraining-policy study on SWaT's genuine normal run and attack period
-that compares never, periodic, drift-triggered and continuous retraining, with
+that compares never, periodic, drift-triggered and every-batch retraining, with
 retraining data selected with or without labels (Section~\ref{sec:drift}).
 \item Single-reading latency, throughput, model size and peak memory for every
 detector inside a one-CPU, 1\,GB ARM64 container (Section~\ref{sec:edge}).
@@ -135,7 +137,7 @@ The study answers four research questions:
 lightweight detectors differ in how well they rank anomalies on SKAB, SWaT, WADI and HAI?
 \item[RQ2] How much do the split definition, the training protocol and the
 threshold rule change measured performance and the ranking of detectors?
-\item[RQ3] Does drift-triggered retraining outperform periodic or continuous
+\item[RQ3] Does drift-triggered retraining outperform periodic or every-batch
 retraining, and what happens when retraining data are selected without labels?
 \item[RQ4] What does each detector cost per reading under a one-CPU, 1\,GB
 memory cap?
@@ -929,7 +931,7 @@ Choice & Evidence in this study & Implication \\
 Sensor set & Adding one drifting SWaT analyser (AIT201): $z$-score false alarms $1.4\%\to42\%$. Removing three drifting WADI analysers: false alarms $56\%\to1\%$ for six detectors & Check sensor ranges against training data; prefer detectors that bound each sensor's influence when analysers can drift \\
 Training/test split & SWaT re-upload layout vs standard split: AUROC $0.84$--$0.93$ vs $0.83$--$0.86$; HBOS first vs last. SKAB pooled vs per-run: chance-level vs run AUROC up to $0.79$, ranking inverted & State the time span and source of training and test data; use a benchmark's reference protocol \\
 Threshold rule & Shared contamination vs per-model calibration: $z$-score MCC $0.18$ vs $0.84$. Label-free vs label-calibrated on SWaT: $z$-score MCC $0.22$ vs $0.82$, One-Class SVM $0.18$ vs $0.82$ & Report a label-free threshold as the deployable result; treat label-calibrated results as an optimistic reference \\
-Retraining data & Oracle labels: Isolation Forest MCC $0.17\to0.57$. Predicted-normal: collapse to flag-everything. All rows: attacks absorbed, MCC $\le0.30$ & Do not claim adaptation gains from label-selected retraining; vet retraining data or use slowly changing detectors \\
+Retraining data & Isolation Forest: oracle labels MCC $0.17\to0.57$; predicted-normal: collapse to flag-everything (MCC $\le0.07$); all rows: attacks absorbed (MCC $\le0.30$). Elliptic Envelope: predicted-normal MCC $0.70$--$0.75$; all rows $0.33$--$0.53$ with 40 or more refits & Do not claim adaptation gains from label-selected retraining; vet retraining data or use slowly changing detectors \\
 Retraining trigger & KS trigger: $0.549$ with 89 refits vs periodic $0.478$ (80), $0.502$ (120), $0.567$ (239); KS checks $98$\,s vs every-batch refits $18$\,s & Compare triggers against a budget curve, including the cost of the check; one stream only \\
 Cost measurement & Batch-averaged vs single-reading latency for Isolation Forest: $0.0019$ vs $2.3$\,ms; feature update $3.2$\,ms & Report single-reading latency and memory above a stated baseline \\
 \bottomrule
@@ -978,7 +980,8 @@ of the threshold rather than the model. For cheap models such as Isolation Fores
 drift test can cost more than the retrain it is meant to save.
 
 \paragraph{Cost.} Single-reading latencies span almost six orders of magnitude, from
-microseconds ($z$-score) to about 700\,ms (ECOD and COPOD in PyOD on SWaT, which store and
+microseconds ($z$-score) to a median of $698$--$739$\,ms (99th percentile up to $1.1$\,s) for
+ECOD and COPOD (in PyOD on SWaT, which store and
 rescore against their training data), and model sizes from 1\,KB to 235\,MB. The
 batch-amortised figures used in the initial analysis (around $0.002$\,ms per row for
 Isolation Forest) understate the real single-reading cost (about $2.3$--$2.8$\,ms)
@@ -1038,7 +1041,8 @@ documented, standard protocols answered the four research questions as follows.
 and on WADI they fall into a common band once three drifting analysers are removed; on HAI
 they separate, with PCA reconstruction and LOF leading ($0.93$, $0.92$) and Elliptic
 Envelope trailing ($0.66$); on SKAB with pooled training, all are close to chance and
-none is distinguishable from the next best. (RQ2) Protocol choices change the conclusions more than detector choice does:
+the paired comparison of the two highest-scoring detectors did not establish a
+significant difference. (RQ2) Protocol choices change the conclusions more than detector choice does:
 the SWaT split definition reorders the detectors, a shared contamination value had made
 the $z$-score look useless (MCC $0.18$ against $0.84$ with its own threshold), SKAB's
 per-run protocol inverts the pooled ranking, and a single analyser decides whether
@@ -1049,8 +1053,8 @@ Isolation Forest; retraining restores it only when the retraining data are known
 normal, and label-free selection makes it collapse or absorb the attacks, whereas
 Elliptic Envelope stays stable under predicted-normal selection and degrades only with
 frequent all-rows retraining; drift-triggered retraining saved some refits but cost more
-in drift checks than it saved. (RQ4) Single-reading costs range from
-microseconds to about 700\,ms and model sizes from kilobytes to hundreds of megabytes
+in drift checks than it saved. (RQ4) Median single-reading costs range from
+microseconds to about 740\,ms (99th percentile up to 1.1\,s) and model sizes from kilobytes to hundreds of megabytes
 under a one-CPU, 1\,GB cap; the per-reading feature update (3.2\,ms) costs more than
 most detectors.
 
