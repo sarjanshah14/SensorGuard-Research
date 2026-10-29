@@ -36,13 +36,37 @@ from experiments.revision.common import (
     threshold_free, thr_label_free, thr_val_mcc,
 )
 
-OUT = "results/revised/swat.json"
-SENSORS = [c for c in CONTINUOUS_SENSORS if c != "AIT201"]
+# SWAT_SOURCE: "reupload" (Kaggle copy; AIT201 blank in its normal run, 24 sensors),
+# "official" (iTrust SWaT.A1&A2_Dec_2015: Normal_v1 + Attack_v0, all 25 sensors) or
+# "official24" (official data restricted to the re-upload's 24 sensors, to check the copy).
+SOURCE = os.environ.get("SWAT_SOURCE", "reupload")
+OUT = {"reupload": "results/revised/swat.json", "official": "results/revised/swat_official.json",
+       "official24": "results/revised/swat_official24.json"}[SOURCE]
+SENSORS = CONTINUOUS_SENSORS if SOURCE == "official" else [c for c in CONTINUOUS_SENSORS if c != "AIT201"]
 CAP = 20000
-STARTUP = 21600
+STARTUP = 21600 if SOURCE == "reupload" else 0   # official loader starts at the same instant (22 Dec 22:00)
+TRAIN_END = pd.Timestamp("2015-12-22 16:00:00") + pd.Timedelta(seconds=int(496800 * 0.85))
+OFFICIAL_DIR = "external_data/swat_official"   # pickles converted once from the iTrust .xlsx files
+
+
+def load_official():
+    def rd(name):
+        df = pd.read_pickle(f"{OFFICIAL_DIR}/{name}.pkl")
+        df.columns = df.columns.str.strip()
+        df.index = pd.to_datetime(df["Timestamp"].astype(str).str.strip(), format="%d/%m/%Y %I:%M:%S %p")
+        lab = df["Normal/Attack"].astype(str).str.replace(" ", "")
+        df["anomaly"] = (lab == "Attack").astype(int)       # includes the 37 rows spelled "A ttack"
+        return df.sort_index()
+    normal = rd("SWaT_Dataset_Normal_v1")
+    normal = normal[normal.index >= pd.Timestamp("2015-12-22 22:00:00")]   # same start as re-upload after start-up removal
+    attack_period = rd("SWaT_Dataset_Attack_v0")
+    assert not normal[SENSORS].isna().any().any() and len(attack_period) == 449919
+    return normal, attack_period
 
 
 def load_standard():
+    if SOURCE != "reupload":
+        return load_official()
     d = _swat_dir()
     raw = _read(os.path.join(d, "normal.csv"))
     att = _read(os.path.join(d, "attack.csv"))
@@ -72,8 +96,9 @@ def run_standard():
     n = len(normal)
     Xn, names = build_features(normal, sensor_cols=SENSORS, include_elapsed=False)
     Xa, _ = build_features(ap, sensor_cols=SENSORS, include_elapsed=False)
-    tr = np.arange(STARTUP, int(n * 0.85))
-    vn = np.arange(int(n * 0.85), n)
+    tr_end = int((normal.index < TRAIN_END).sum())      # equals int(0.85 * 496800) on the re-upload
+    tr = np.arange(STARTUP, tr_end)
+    vn = np.arange(tr_end, n)
     ya = ap["anomaly"].to_numpy()
     third = len(ap) // 3
     cal, tail = np.arange(third), np.arange(third, len(ap))
@@ -152,9 +177,11 @@ def main():
     t0 = time.perf_counter()
     print("standard protocol...", flush=True)
     std = run_standard()
-    print("original layout...", flush=True)
-    orig = run_original_layout()
-    out = {"standard": std, "original_layout_same_code": orig, "wall_s": round(time.perf_counter() - t0)}
+    orig = {"models": {}}
+    if SOURCE == "reupload":
+        print("original layout...", flush=True)
+        orig = run_original_layout()
+    out = {"source": SOURCE, "standard": std, "original_layout_same_code": orig, "wall_s": round(time.perf_counter() - t0)}
     with open(OUT, "w") as f:
         json.dump(out, f, indent=2)
     print(std["rows"])

@@ -38,11 +38,14 @@ def auroc_ci(ax, models, title, get):
 
 
 def fig_auroc():
-    sk, sw, ha = J("skab")["pooled"]["models"], J("swat")["standard"]["models"], J("hai")["models"]
-    fig, axs = plt.subplots(1, 3, figsize=(13, 3.8))
-    auroc_ci(axs[0], sk, "SKAB (pooled protocol)", lambda m: (m["auroc"], m["ci95"]["auroc"]))
-    auroc_ci(axs[1], sw, "SWaT (standard protocol)", lambda m: (m["full"]["auroc"], m["full"]["ci95"]["auroc"]))
-    auroc_ci(axs[2], ha, "HAI 21.03", lambda m: (m["full"]["auroc"], m["full"]["ci95"]["auroc"]))
+    sk, sw, wa, ha = (J("skab")["pooled"]["models"], J("swat_official")["standard"]["models"],
+                      J("wadi")["models"], J("hai")["models"])
+    fig, axs = plt.subplots(2, 2, figsize=(11, 7.6))
+    full = lambda m: (m["full"]["auroc"], m["full"]["ci95"]["auroc"])
+    auroc_ci(axs[0, 0], sk, "SKAB (pooled protocol)", lambda m: (m["auroc"], m["ci95"]["auroc"]))
+    auroc_ci(axs[0, 1], sw, "SWaT (official, standard split)", full)
+    auroc_ci(axs[1, 0], wa, "WADI A2 (all 67 points)", full)
+    auroc_ci(axs[1, 1], ha, "HAI 21.03", full)
     fig.tight_layout(); fig.savefig(f"{F}/auroc_ci.png"); plt.close(fig)
 
 
@@ -58,7 +61,7 @@ def fig_protocol():
     d = [sk["skab_benchmark_protocol"]["models"][n]["mean_file_auroc"] for n in sknames]
     fig, axs = plt.subplots(1, 2, figsize=(10, 3.6))
     for ax, nm, x1, x2, l1, l2, t in [
-        (axs[0], names, a, b, "re-upload layout (original paper)", "standard split", "SWaT: AUROC by split definition"),
+        (axs[0], names, a, b, "re-upload layout (initial analysis)", "standard split (same copy, 24 sensors)", "SWaT: AUROC by split definition"),
         (axs[1], sknames, c, d, "pooled training (original paper)", "per-run, first 400 rows (SKAB benchmark)", "SKAB: AUROC by training protocol")]:
         x = np.arange(len(nm)); w = 0.38
         ax.bar(x - w / 2 - 0.01, x1, w, color=ORANGE, label=l1)

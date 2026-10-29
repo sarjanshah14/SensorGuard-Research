@@ -33,9 +33,9 @@ from sklearn.preprocessing import StandardScaler
 from src.drift import drift_score
 from src.features import build_features
 from experiments.revision.common import event_metrics, make_models, point_metrics
-from experiments.revision.swat_revised import SENSORS, STARTUP, load_standard
+from experiments.revision.swat_revised import SENSORS, SOURCE, STARTUP, load_standard
 
-OUT = "results/revised/drift.json"
+OUT = {"reupload": "results/revised/drift.json"}.get(SOURCE, "results/revised/drift_official.json")
 N_INIT, BATCH, WINDOW = 50000, 3600, 5
 MODELS = ["IsolationForest", "EllipticEnvelope"]
 PERIODS = [1, 2, 3, 4, 6, 12, 24, 48]
