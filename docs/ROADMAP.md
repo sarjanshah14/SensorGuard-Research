@@ -438,7 +438,9 @@ Found the SWaT split error, inconsistent thresholds, label-using drift retrainin
 ### [x] R6. Prof. Shah approved framing; IJPHM Word manuscript built; code public on GitHub
 ### [x] R6b. Second external review addressed (readable tables, reconciled numbers; PDF render checked)
 
-### [ ] R7. Submit to IJPHM (+ arXiv preprint)
+### [x] R7. Submitted to IJPHM on 2026-11-09 (submission ID 5305)
+
+### [ ] R8. Respond to IJPHM reviews (revise, rebuttal letter); after acceptance set footer year and paper number
 Depends on: Sarjan opening the .docx in Word for a last look and Prof. Shah's read-through.
 
 ---

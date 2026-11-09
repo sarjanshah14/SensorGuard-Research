@@ -2,6 +2,7 @@
 
 One line per session: what was done.
 
+- [2026-11-09] [session 37] SUBMITTED to IJPHM (OJS submission ID 5305, section Technical Papers) by Sarjan, guided step by step: one .docx (Full-Length Manuscript), authors Sarjan Shah (primary contact, shahsarjan968@gmail.com) and Abhi Shah, LJKU Ahmedabad; 6 keywords; comments to editor mention official iTrust data and public repo.
 - [2026-11-09] [session 36] Tenth external review (8.5/10): HAI delay sentence names the five detectors with recall 1.00 and gives IF/EE recall (0.66/0.48); SKAB validation rule stated exactly (RandomState(42) shuffle, first 6 of 34 = 17.6%); all 31 reference DOIs verified to resolve at doi.org.
 - [2026-11-09] [session 35] Ninth external review (8.5/10, nearly ready): WADI event-recall sentence corrected (five classical detectors 1.00, LSTM-AE 0.86, all zero delay); resource-measurement method, Section 7 opening and Figure 4 caption now say nine classical detectors with LSTM-AE measured separately.
 - [2026-11-09] [session 34] Eighth external review (8/10): WADI now reports every metric the methods promise (two full tables: AUPRC, LF MCC with CI, event recall, delay, VM on last two thirds; text interprets them); SKAB 'LF' qualified as normal-only calibration with label-assisted selection (methods, Table 2, results); LSTM-AE absence from re-upload layout, SKAB reference protocol and cost table stated in captions/text/contributions; Table 2 caption reworded; WADI FAR range corrected to 0.6-1.3%. 20 pages, 10 tables.
