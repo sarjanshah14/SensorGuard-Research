@@ -9,6 +9,7 @@ Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference
 10 detectors × 4 datasets (SKAB, SWaT official, WADI A2 official, HAI 21.03).
 
 ## >>> CURRENT STAGE (read first) <<<
+- 2026-11-09 (session 34): eighth review fixes done (complete WADI tables, SKAB LF wording, LSTM scope). 20 pages, 10 tables. Ready to submit after Prof. Shah's OK.
 - 2026-11-09 (session 33): seventh review fixes done (delay reported, SKAB threshold source disclosed, CI captions, drift details, 299-word abstract). Ready to submit after Prof. Shah's OK.
 - 2026-10-30 (session 29): third review fixes done (SWaT claim softened; WADI rerun with gap-aware features). Paper ready to submit after Sarjan's Word check + Prof. Shah's read.
 - 2026-10-30 (session 28): second external review addressed. Word file rebuilt: tables readable, Table 9 numbers restored, captions labelled, 19 pages; checked in a LibreOffice PDF render (`paper/current/Shah_IJPHM_preview_LibreOffice.pdf`). SKAB/HAI/drift/resource text reconciled with the JSON results. Next: Sarjan opens the .docx in Word, reads it with Prof. Shah, submits.

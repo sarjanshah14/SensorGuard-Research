@@ -1385,3 +1385,13 @@ The review (8.0/10, "keep version 4 as master") asked only for checks. Repositor
 **Also:** SKAB paired claim limited to the top two; abstract shortened from 462 to 299 words; PHM framing added. Rendered PDF checked page by page (19 pages, header on 18, all tables readable).
 
 **Plain language:** the paper now shows every number it says it reports, and is explicit about where labels were used.
+
+## Session 34 — 2026-11-09 — Eighth external review: complete WADI reporting
+
+**WADI:** the methods promised AUPRC, event recall, delay and validation-MCC on the last two thirds, but Table 5 showed only AUROC, LF MCC and FAR. All of these were already in wadi.json / wadi_excl.json, so the single table became two tables in the SWaT/HAI format (all 67 points; without the three analysers), generated straight from the JSON. New text: the 1.00 event recall at zero delay of the six high-FAR detectors reflects near-continuous alarms; without the analysers LOF, z-score, PCA and OCSVM detect 79-86% of attacks with 30-166 s median delay; AUPRC stays 0.05-0.32 against a 0.058 attack rate; calibration on the first third does not transfer (VM MCC <= 0.14 for every classical detector). The no-analyser FAR range was 0.6-1.3%, not 1.4%; corrected.
+
+**SKAB terminology:** "LF" on SKAB is now described as normal-only calibration with label-assisted sample selection, in the methods, Table 2 caption and results; the abbreviation is kept.
+
+**LSTM-AE coverage:** the re-upload layout comparison, SKAB reference protocol and cost table cover the nine classical detectors only; captions, the contributions list and the protocol text now say so ("the same detectors" removed).
+
+**Plain language:** every metric the paper says it reports is now in a table, and nothing implies the LSTM was run where it was not.

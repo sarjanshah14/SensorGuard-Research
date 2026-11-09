@@ -114,8 +114,8 @@ against the official release (Section~\ref{sec:protocol}).
 \item A retraining-policy study on SWaT's genuine normal run and attack period
 that compares never, periodic, drift-triggered and every-batch retraining, with
 retraining data selected with or without labels (Section~\ref{sec:drift}).
-\item Single-reading latency, throughput, model size and peak memory for every
-detector inside a one-CPU, 1\,GB ARM64 container (Section~\ref{sec:edge}).
+\item Single-reading latency, throughput, model size and peak memory for the nine
+classical detectors, with the LSTM autoencoder's inference measured separately, inside a one-CPU, 1\,GB ARM64 container (Section~\ref{sec:edge}).
 \end{enumerate}
 
 The study answers four research questions:
@@ -340,7 +340,9 @@ training portions (24{,}930 rows); the last 20\% of every run is the test set (7
 which is used for training, so the label-free threshold is set from the normal-labelled
 rows of the six validation runs' training portions (3{,}438 of their 5{,}562 rows; runs
 other/19 and valve1/1, 4, 6, 7, 13). Selecting these rows uses the per-second labels; the
-threshold uses no anomalous rows, but on SKAB it is label-free only in that sense. On
+threshold uses no anomalous rows, so on SKAB the ``label-free'' (LF) rule is, strictly,
+normal-only calibration with label-assisted sample selection; the LF abbreviation is kept
+for consistency. On
 SWaT, WADI and HAI the held-out normal data come from normal-only recordings and need no
 labels.
 \paragraph{SKAB, benchmark protocol.} The SKAB reference implementation trains
@@ -463,16 +465,19 @@ comparison of the two highest-scoring detectors (Isolation Forest and COPOD) did
 establish a significant difference ($0.012$, CI $-0.066$ to $0.092$); other pairs were not
 tested. The LSTM autoencoder is below chance
 (AUROC $0.442$, three seeds within $\pm0.001$). With a calibrated threshold the
-best MCC is $0.113$ (COPOD; CI $0.045$--$0.190$). The label-free rule gives MCC
+best MCC is $0.113$ (COPOD; CI $0.045$--$0.190$). The label-free rule (here normal-only
+calibration with label-assisted selection of the normal rows) gives MCC
 within $\pm0.05$ of zero for every detector: thresholds learned from normal
 data in this pooled setting do not separate faults.
 
 \begin{table}[t]
 \centering\small
 \caption{SKAB, pooled protocol (test: last 20\% of each of 34 runs, 7{,}503 rows,
-30.0\% anomalous). Seed-0 models. AUROC and validation-MCC (VM) MCC with 95\%
-block-bootstrap CIs over files (test-block variability only); label-free (LF) MCC is a
-point estimate. Event recall and median detection delay use VM; 33 fault events.}
+30.0\% anomalous). Seed-0 models. AUROC and validation-MCC (VM) are reported with 95\%
+block-bootstrap confidence intervals over files (test-block variability only); label-free (LF) MCC is a
+point estimate. Event recall and median detection delay use VM; 33 fault events.
+On SKAB, LF means normal-only calibration with label-assisted sample selection
+(Section~\ref{sec:method}).}
 \label{tab:skab}
 \begin{tabular}{lccccccc}
 \toprule
@@ -625,11 +630,17 @@ SVM, LOF, PCA reconstruction, Elliptic Envelope and the LSTM autoencoder are at 
 (AUROC $0.46$--$0.52$). These six detectors raise alarms on 55.8--56.1\% of the attack
 file's normal rows under the label-free rule, and the near-identical rate points to a
 single cause: the analyser 2B\_AIT\_002\_PV is outside its training range on 55.5\% of
-those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Repeating the experiment
-without these three analysers removes the effect: every detector's label-free false-alarm
-rate falls to 0.6--1.4\%, AUROC moves into a common band of $0.649$--$0.748$ with
+those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Their apparent event recall
+of $1.00$ with zero delay reflects alarms that fire almost continuously, not detection.
+Repeating the experiment without these three analysers (Table~\ref{tab:wadiex}) removes the
+effect: every detector's label-free false-alarm rate falls to 0.6--1.3\%, AUROC moves into a common band of $0.649$--$0.748$ with
 overlapping CIs, and label-free MCC reaches $0.329$ for the LSTM autoencoder and
-$0.18$--$0.23$ for LOF, the $z$-score, PCA reconstruction and One-Class SVM. This
+$0.18$--$0.23$ for LOF, the $z$-score, PCA reconstruction and One-Class SVM; these four
+then detect 79--86\% of the attacks with median delays of 30--166\,s. AUPRC stays low
+($0.05$--$0.18$ with all points, $0.12$--$0.32$ without the analysers, against a $0.058$
+attack rate), and calibrating on the first third of the attack file does not help on the
+remaining two thirds (validation-MCC $\le0.14$ for every classical detector with or
+without the analysers; $0.355$ for the LSTM autoencoder without them). This
 ablation is a post-hoc diagnostic: the three analysers were chosen after inspecting their
 ranges in the attack file, so it shows that the sensor set can decide whether thresholds
 transfer, but it is not a procedure that a deployment could apply in advance. A label-free
@@ -639,25 +650,44 @@ low, as other studies also find.
 
 \begin{table}[t]
 \centering\small
-\caption{WADI A2 (test: 172{,}803 rows, 5.8\% attacks, 14 attacks), with all 67 points
-and without the three drifting analysers (64 points). AUROC with 95\% block-bootstrap CI
-(one-hour blocks); label-free MCC and false-alarm rate on normal test rows.}
+\caption{WADI A2, all 67 points (test: 172{,}803 rows, 5.8\% attacks, 14 attacks). Seed-0 models. AUROC and label-free MCC with 95\% block-bootstrap CIs (one-hour blocks; test-block variability only); VM MCC is a point estimate. FAR: false-alarm rate on normal test rows; VM: validation-MCC threshold calibrated on the first third of the attack file, scored on the last two thirds.}
 \label{tab:wadi}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
- & \multicolumn{3}{c}{All 67 points} & \multicolumn{3}{c}{Without 3 drifting analysers} \\
-Detector & AUROC [95\% CI] & MCC LF & FAR LF & AUROC [95\% CI] & MCC LF & FAR LF \\
+Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & Delay LF (s) & MCC VM \\
 \midrule
-HBOS & 0.742 [0.588, 0.862] & 0.070 & 0.014 & 0.748 [0.602, 0.864] & 0.022 & 0.012 \\
-Isolation Forest & 0.720 [0.555, 0.843] & 0.031 & 0.013 & 0.720 [0.570, 0.835] & 0.029 & 0.013 \\
-COPOD & 0.710 [0.582, 0.818] & 0.055 & 0.009 & 0.709 [0.576, 0.817] & 0.054 & 0.009 \\
-ECOD & 0.709 [0.585, 0.810] & 0.061 & 0.009 & 0.703 [0.567, 0.808] & 0.060 & 0.009 \\
-One-Class SVM & 0.517 [0.380, 0.655] & $-$0.030 & 0.559 & 0.733 [0.590, 0.859] & 0.183 & 0.010 \\
-LOF & 0.484 [0.337, 0.625] & $-$0.026 & 0.558 & 0.649 [0.502, 0.762] & 0.230 & 0.006 \\
-$z$-score & 0.479 [0.341, 0.620] & $-$0.027 & 0.559 & 0.697 [0.574, 0.807] & 0.214 & 0.009 \\
-PCA-recon & 0.478 [0.330, 0.627] & $-$0.027 & 0.558 & 0.686 [0.479, 0.832] & 0.191 & 0.010 \\
-Elliptic Envelope & 0.475 [0.327, 0.635] & $-$0.074 & 0.559 & 0.709 [0.551, 0.844] & $-$0.006 & 0.011 \\
-LSTM-AE & 0.467 [0.296, 0.627] & 0.019 & 0.560 & 0.695 [0.471, 0.876] & 0.329 & 0.011 \\
+HBOS & 0.742 [0.588, 0.862] & 0.177 & 0.070 [0.003, 0.155] & 0.014 & 0.43 & 11.5 & 0.115 \\
+Isolation Forest & 0.720 [0.555, 0.843] & 0.152 & 0.031 [0.001, 0.052] & 0.013 & 0.57 & 133 & $-$0.005 \\
+COPOD & 0.710 [0.582, 0.818] & 0.139 & 0.055 [0.001, 0.120] & 0.009 & 0.64 & 10 & 0.117 \\
+ECOD & 0.709 [0.585, 0.810] & 0.127 & 0.061 [0.011, 0.129] & 0.009 & 0.64 & 27 & 0.122 \\
+One-Class SVM & 0.517 [0.380, 0.655] & 0.056 & $-$0.030 [$-$0.179, 0.117] & 0.559 & 1.00 & 0 & 0.007 \\
+LOF & 0.484 [0.337, 0.625] & 0.050 & $-$0.026 [$-$0.172, 0.120] & 0.558 & 1.00 & 0 & $-$0.023 \\
+$z$-score & 0.479 [0.341, 0.620] & 0.050 & $-$0.027 [$-$0.175, 0.122] & 0.559 & 1.00 & 0 & $-$0.029 \\
+PCA-recon & 0.478 [0.330, 0.627] & 0.050 & $-$0.027 [$-$0.174, 0.118] & 0.558 & 1.00 & 0 & $-$0.182 \\
+Elliptic Envelope & 0.475 [0.327, 0.635] & 0.051 & $-$0.074 [$-$0.227, 0.083] & 0.559 & 1.00 & 0 & $-$0.258 \\
+LSTM-AE & 0.467 [0.296, 0.627] & 0.049 & 0.019 [$-$0.140, 0.131] & 0.560 & 0.86 & 0 & $-$0.062 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\caption{WADI A2 without the three drifting analysers (64 points; post-hoc diagnostic, see text). Same test data, models and conventions as Table~\ref{tab:wadi}.}
+\label{tab:wadiex}
+\begin{tabular}{lccccccc}
+\toprule
+Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & Delay LF (s) & MCC VM \\
+\midrule
+HBOS & 0.748 [0.602, 0.864] & 0.179 & 0.022 [$-$0.004, 0.050] & 0.012 & 0.36 & 46 & 0.140 \\
+One-Class SVM & 0.733 [0.590, 0.859] & 0.241 & 0.183 [0.006, 0.356] & 0.010 & 0.86 & 30 & 0.118 \\
+Isolation Forest & 0.720 [0.570, 0.835] & 0.141 & 0.029 [$-$0.011, 0.071] & 0.013 & 0.64 & 100 & 0.127 \\
+COPOD & 0.709 [0.576, 0.817] & 0.138 & 0.054 [0.000, 0.121] & 0.009 & 0.64 & 27 & 0.129 \\
+Elliptic Envelope & 0.709 [0.551, 0.844] & 0.127 & $-$0.006 [$-$0.019, 0.006] & 0.011 & 0.57 & 188.5 & $-$0.008 \\
+ECOD & 0.703 [0.567, 0.808] & 0.124 & 0.060 [0.008, 0.129] & 0.009 & 0.64 & 27 & 0.119 \\
+$z$-score & 0.697 [0.574, 0.807] & 0.205 & 0.214 [0.029, 0.385] & 0.009 & 0.86 & 34.5 & 0.096 \\
+LSTM-AE & 0.695 [0.471, 0.876] & 0.318 & 0.329 [0.015, 0.533] & 0.011 & 0.43 & 138.5 & 0.355 \\
+PCA-recon & 0.686 [0.479, 0.832] & 0.260 & 0.191 [$-$0.005, 0.374] & 0.010 & 0.79 & 166 & 0.010 \\
+LOF & 0.649 [0.502, 0.762] & 0.202 & 0.230 [0.013, 0.420] & 0.006 & 0.86 & 43 & 0.059 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -665,7 +695,7 @@ LSTM-AE & 0.467 [0.296, 0.627] & 0.019 & 0.560 & 0.695 [0.471, 0.876] & 0.329 & 
 \subsection{How much protocol choices change the conclusions}
 \label{sec:protocol}
 
-\paragraph{Split definition (SWaT).} Scoring the same detectors with the same
+\paragraph{Split definition (SWaT).} Scoring the nine classical detectors with the same
 code on the re-upload's layout (the split of the initial analysis: train on the
 normal rows between attacks, test on 31.5\% attacks) gives AUROC $0.840$--$0.934$
 and reorders the detectors: HBOS ranks first there and last under the standard
@@ -695,7 +725,7 @@ $0.810$. The initial ranking therefore reflected mainly the shared threshold,
 not the detectors.
 
 \paragraph{Training protocol (SKAB).} Under the SKAB reference protocol (one
-model per run, trained on its first 400 rows), the same detectors are far
+model per run, trained on its first 400 rows), the nine classical detectors are far
 better than under pooled training: mean per-run AUROC reaches $0.794$
 (PCA reconstruction), $0.785$ (LOF) and $0.771$ (One-Class SVM), against
 $0.489$--$0.575$ pooled (Fig.~\ref{fig:protocol}, right; Table~\ref{tab:skabbench}).
@@ -711,7 +741,7 @@ false-alarm rates (47--71\%), while Elliptic Envelope offers a more balanced
 operating point (F1 $0.644$, false alarms 20.2\%, MCC $0.361$).
 
 \paragraph{Threshold rule (SKAB).} On the pooled SKAB test set, Isolation
-Forest's MCC is $0.005$ with the label-free rule, $0.097$ with validation-MCC and
+Forest's MCC is $0.005$ with the label-free (label-assisted selection) rule, $0.097$ with validation-MCC and
 $0.118$ with validation-F1; the F1 rule buys its MCC with recall $0.71$ at
 higher false-alarm rates. Differences of this size are within the CIs.
 
@@ -724,7 +754,8 @@ the numbers.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{protocol_sensitivity.png}
-\caption{Same detectors, same code, different protocol. Left: SWaT AUROC under the
+\caption{Same nine classical detectors, same code, different protocol (the LSTM
+autoencoder was not run under these alternative protocols). Left: SWaT AUROC under the
 re-upload layout used in the initial analysis versus the standard split. Right: SKAB
 AUROC with one model trained on all runs (pooled) versus one model per run trained
 on its first 400 rows (SKAB reference protocol; mean over runs).}
@@ -733,7 +764,8 @@ on its first 400 rows (SKAB reference protocol; mean over runs).}
 
 \begin{table}[t]
 \centering\small
-\caption{SKAB reference protocol (per run: first 400 rows train, remainder test;
+\caption{SKAB reference protocol, nine classical detectors (the LSTM autoencoder was not
+trained per run; per run: first 400 rows train, remainder test;
 label-free threshold from each run's training scores). FAR and MAR as defined by the
 SKAB benchmark (false-alarm and missed-alarm rates).}
 \label{tab:skabbench}
@@ -891,7 +923,8 @@ resident set includes pages shared with its parent; it is not used here.)
 
 \begin{table}[t]
 \centering\small
-\caption{Cost per detector in a Docker container capped at one CPU and 1\,GB RAM
+\caption{Cost per classical detector (the LSTM autoencoder is reported separately in the
+text) in a Docker container capped at one CPU and 1\,GB RAM
 (linux/arm64 on an Apple M4 host; single BLAS thread; one spawned process per
 detector). Input: 50{,}000 normal training rows of the public re-upload's 24 SWaT sensors
 (120 features), not the 25-sensor official set (125 features) used elsewhere. Latency: one
@@ -977,7 +1010,7 @@ A contamination value tuned on Isolation Forest and shared by all detectors made
 detectors with differently scaled scores look poor. Retraining on
 ground-truth-normal rows made adaptation look free of risk. None of these
 choices is unusual, and each was documented in the code. Their effect became
-visible only when the same detectors were rerun under alternative protocols.
+visible only when the classical detectors were rerun under alternative protocols.
 Studies that compare detectors should therefore report at least one alternative
 threshold rule and state where their training and test data come from in time.
 
