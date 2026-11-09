@@ -1401,3 +1401,9 @@ The review (8.0/10, "keep version 4 as master") asked only for checks. Repositor
 The WADI text said the six high-FAR detectors had event recall 1.00; Table 5 shows LSTM-AE at 0.86. Fixed to "five classical detectors 1.00, LSTM-AE 0.86, all zero delay". The resource-measurement method ("Each detector is fitted and timed"), the Section 7 opening and the Figure 4 caption now say nine classical detectors, with the LSTM autoencoder's latency and memory measured separately. Rendered PDF re-checked (20 pages).
 
 **Plain language:** two sentences now match their tables exactly.
+
+## Session 36 — 2026-11-09 — Tenth external review: last two wording fixes, DOI check
+
+The HAI sentence implied Isolation Forest and Elliptic Envelope detected all 50 attacks; it now names the five that did (PCA, LOF, LSTM-AE, OCSVM, z-score; 1.5-5 s) and gives IF/EE delays with their event recalls (0.66, 0.48). The SKAB validation split said "20% of the runs" but used six of 34; `file_holdout_split` shuffles with RandomState(42) and takes int(0.2*34) = 6, which the paper now states (17.6%). All 31 DOIs in the reference list were checked against the doi.org handle API; all resolve.
+
+**Plain language:** the last two sentences that did not match the tables or code now do, and every DOI link works.

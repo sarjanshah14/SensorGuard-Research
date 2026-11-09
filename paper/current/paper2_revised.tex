@@ -333,7 +333,9 @@ initial analysis' choice of F1 mattered.
 \subsection{Splits}
 \paragraph{SKAB, pooled protocol.} As in the initial analysis, each fault run is
 split chronologically into its first 80\% and last 20\%. The training portions of
-20\% of the runs (whole runs, fixed seed) form a labelled validation set; the
+six of the 34 runs form a labelled validation set (whole runs: the run list is shuffled
+with NumPy \texttt{RandomState(42)} and the first six, 20\% of 34 rounded
+down, are taken, i.e.\ 17.6\% of the runs); the
 model is trained on the anomaly-free run plus the normal rows of the remaining
 training portions (24{,}930 rows); the last 20\% of every run is the test set (7{,}503 rows,
 30.0\% anomalous). SKAB has no separate normal recording beyond the anomaly-free run,
@@ -584,9 +586,11 @@ $0.815\pm0.009$ over ten seeds; the seed-to-seed spread is of the same order as 
 to COPOD and ECOD).
 Label-free thresholds transfer well on HAI: held-out normal data from the training
 period predicted the test-period false-alarm rate closely (0.4--1.6\% for every
-classical detector against a 1\% target; 9.1\% for the LSTM autoencoder), and the
-leading five detectors raised alarms in all 50 attacks, with a median delay of
-1.5--5\,s (Isolation Forest $27$\,s, Elliptic Envelope $38$\,s). With these thresholds MCC is
+classical detector against a 1\% target; 9.1\% for the LSTM autoencoder). Five
+detectors (PCA reconstruction, LOF, the LSTM autoencoder, One-Class SVM and the $z$-score)
+raised alarms in all 50 attacks, with median detection delays of 1.5--5\,s; Isolation
+Forest and Elliptic Envelope had median delays of $27$\,s and $38$\,s and event recalls of
+$0.66$ and $0.48$. With these thresholds MCC is
 $0.597$--$0.627$ for PCA reconstruction, LOF, One-Class SVM and the $z$-score.
 Calibrating on a labelled test file raises MCC on the remaining files only slightly
 (by $0.05$--$0.06$) for the leaders, but by $0.33$ for the LSTM autoencoder, whose
