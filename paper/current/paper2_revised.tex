@@ -27,46 +27,30 @@ Threshold Transfer, Retraining Risk, and Inference Cost}
 \let\thefootnote\relax\footnotetext{Sarjan Shah et al. This is an open-access article distributed under the terms of the Creative Commons Attribution 3.0 United States License, which permits unrestricted use, distribution, and reproduction in any medium, provided the original author and source are credited.}
 
 \begin{abstract}
-Comparisons of unsupervised anomaly detectors for industrial sensor data often
-report a winning method, but the winner can depend on evaluation choices that are
-rarely varied. This paper shows how three such choices change the conclusions:
-which data define the normal training period (a widely shared re-upload of SWaT
-places the attack period's normal rows in the file named for normal operation),
-how detection thresholds are calibrated, and whether retraining data are selected
-with labels. Nine lightweight detectors and a small LSTM autoencoder are
-evaluated under standard protocols with threshold-free metrics (AUROC, AUPRC),
-threshold-dependent metrics under two calibration rules, event recall and
-block-bootstrap confidence intervals on four benchmarks: SKAB (pump and valve
-testbed), SWaT and WADI (water treatment and distribution, official iTrust releases)
-and HAI (turbine, boiler and water-treatment hardware-in-the-loop testbed). On SWaT,
-all ten detectors reach AUROC $0.81$--$0.86$ with overlapping intervals, and the two
-highest-scoring are not significantly different (equivalence of all ten was not formally
-tested); on SKAB with pooled training all detectors are close to chance (best AUROC
-$0.575$, CI $0.504$--$0.645$) and the paired comparison of the two highest-scoring did
-not establish a significant difference, while
-SKAB's per-run protocol yields run-level AUROC up to $0.79$ and an inverted ranking;
-on HAI, PCA reconstruction and LOF lead ($0.93$, $0.92$) and Elliptic Envelope trails
-($0.66$). Protocol choices moved MCC by up to $0.8$ for the same detector. Thresholds
-set only from normal data failed wherever chemical analysers drifted between the
-normal and the attack recordings: on SWaT, the $z$-score, One-Class SVM, LOF, PCA
-reconstruction and the LSTM autoencoder raised alarms on 42--75\% of normal readings (on
-WADI, these and Elliptic Envelope on about 56\%), while COPOD, ECOD, HBOS and Isolation
-Forest stayed below 12\% on SWaT and 1.4\% on WADI. Adding one drifting analyser (AIT201,
-missing from a public re-upload of SWaT) raised the $z$-score's false-alarm rate from
-1.4\% to 42\%; removing three drifting analysers from WADI cut false alarms from 56\%
-to about 1\%. In a streaming
-simulation, SWaT's normal operation drifted enough to raise a static Isolation
-Forest's false-alarm rate from 10\% to 86\%. In this simulation, retraining improved
-Isolation Forest when the retraining data were known to be normal, whereas label-free
-selection made it collapse or absorb attacks into its normal model; Elliptic Envelope was
-stable under predicted-normal selection, although frequent retraining on all recent rows
-degraded it. A drift trigger saved some refits relative to a schedule, but its checks cost
-more than refitting every hour. Single-reading
-latency in a one-CPU, 1\,GB container ranged from microseconds to about 740\,ms (median;
-99th percentile up to 1.1\,s for ECOD). The
-results argue for choosing detectors by threshold stability and retraining needs and
-for reporting protocols in enough detail to tell which of these a benchmark number
-measures.
+Comparisons of unsupervised anomaly detectors for industrial sensor data usually report
+a winning method, yet the winner can depend on evaluation choices that are rarely varied.
+This paper measures how the definition of the normal training period, the
+threshold-calibration rule, the sensor set and the selection of retraining data change
+the conclusions. Nine lightweight detectors and a small LSTM autoencoder are evaluated
+with threshold-free and threshold-dependent metrics, event recall, detection delay and
+block-bootstrap confidence intervals on four benchmarks: SKAB, the official SWaT and WADI
+releases, and HAI. Ranking quality alone rarely separated the detectors: on SWaT all ten
+reached AUROC $0.81$--$0.86$ with overlapping intervals, whereas on HAI PCA reconstruction
+and LOF led ($0.93$, $0.92$). Protocol choices moved MCC by up to $0.8$ for the same
+detector, and a widely shared re-upload of SWaT, which stores the attack period's normal
+rows in its normal-operation file, reordered the detectors. Thresholds set only from
+normal data failed wherever chemical analysers drifted between the normal and the attack
+recordings: on SWaT the $z$-score, One-Class SVM, LOF, PCA reconstruction and the LSTM
+autoencoder raised alarms on 42--75\% of normal readings, whereas COPOD, ECOD, HBOS and
+Isolation Forest stayed below 12\%; one analyser missing from the re-upload raised the
+$z$-score's false-alarm rate from 1.4\% to 42\%. In a single-stream retraining simulation,
+Isolation Forest recovered only when the retraining data were known to be normal and
+collapsed or absorbed attacks under label-free selection, whereas Elliptic Envelope stayed
+stable; a drift trigger saved refits but its checks cost more than they saved. Median
+single-reading latency in a one-CPU, 1\,GB container ranged from microseconds to about
+740\,ms. For condition-monitoring systems, the results argue for choosing detectors by
+threshold stability and retraining needs, and for reporting protocols in enough detail to
+tell what a benchmark number measures.
 \end{abstract}
 
 \noindent\textbf{Keywords:} unsupervised anomaly detection; multivariate time
@@ -84,7 +68,10 @@ adaptive thresholds on top of the detector \citep{lee2017}. For an engineer choo
 resource-limited monitoring node, three practical questions matter: which
 detector separates anomalies from normal operation best, whether that answer
 survives the passage of time once the detector is deployed, and what the
-detector costs to run.
+detector costs to run. In prognostics and health management (PHM), such a detector is
+the first stage of the monitoring chain: its alarms start diagnosis and maintenance
+decisions, so a threshold that silently stops transferring, or a retraining step that
+learns a fault as normal, lowers the dependability of everything downstream.
 
 Published comparisons give less guidance on these questions than their
 headline numbers suggest. Large benchmark studies report that no family of
@@ -348,8 +335,14 @@ initial analysis' choice of F1 mattered.
 split chronologically into its first 80\% and last 20\%. The training portions of
 20\% of the runs (whole runs, fixed seed) form a labelled validation set; the
 model is trained on the anomaly-free run plus the normal rows of the remaining
-training portions; the last 20\% of every run is the test set (7{,}503 rows,
-30.0\% anomalous).
+training portions (24{,}930 rows); the last 20\% of every run is the test set (7{,}503 rows,
+30.0\% anomalous). SKAB has no separate normal recording beyond the anomaly-free run,
+which is used for training, so the label-free threshold is set from the normal-labelled
+rows of the six validation runs' training portions (3{,}438 of their 5{,}562 rows; runs
+other/19 and valve1/1, 4, 6, 7, 13). Selecting these rows uses the per-second labels; the
+threshold uses no anomalous rows, but on SKAB it is label-free only in that sense. On
+SWaT, WADI and HAI the held-out normal data come from normal-only recordings and need no
+labels.
 \paragraph{SKAB, benchmark protocol.} The SKAB reference implementation trains
 a model per run on its first 400 rows and tests on the rest. This protocol is
 also reported, with the label-free threshold set from each run's own training
@@ -376,7 +369,11 @@ each test file.
 AUROC and average precision (AUPRC) summarise ranking quality independent of
 any threshold. At a threshold, precision, recall, F1, MCC, false-alarm rate on
 normal rows, event recall (the fraction of contiguous anomalous segments with at
-least one alarm) and median detection delay are reported. MCC is
+least one alarm) and median detection delay are reported. Detection delay is the time in
+seconds (rows at 1\,Hz) from the first labelled row of an event to the first alarm within
+it, and its median is taken over detected events only; a detector that already alarms on
+most normal rows shows a delay near zero, so delay is informative only together with the
+false-alarm rate. MCC is
 \begin{equation}
 \mathrm{MCC}=\frac{TP\cdot TN-FP\cdot FN}{\sqrt{(TP+FP)(TP+FN)(TN+FP)(TN+FN)}}
 \end{equation}
@@ -421,7 +418,16 @@ recorded. Each retrain uses the last five batches, with rows selected in one of 
 (ground-truth normal rows, as in the initial analysis), \emph{predicted-normal}
 (rows the current model did not flag) or \emph{all} rows. After every fit the
 threshold is the 99th percentile of the fit-window scores. Isolation Forest and
-Elliptic Envelope are tested. The scaler is fitted once on the initial window.
+Elliptic Envelope are tested. The scaler is fitted once on the initial window. The KS
+statistic is computed over all 125 features between the current batch and a reference
+that is the initial 50{,}000-row window until the first refit and afterwards the rows the
+model was last refitted on. The trigger threshold ($\bar D{=}0.317$) is the 95th
+percentile of $\bar D$ between the initial window and each of its own 13 one-hour slices;
+because those slices are part of the reference, this calibration is conservative toward
+firing. The check runs on every batch, whether or not the previous attempt refitted. The
+five-batch window always includes the batch just scored. When an attempt finds 1{,}000
+rows or fewer after selection, neither the model, its threshold nor the KS reference
+changes, and the next attempt again uses the five most recent batches.
 The KS statistic is used instead of its $p$-value because, with thousands of
 rows per batch, $p$-values vanish for negligible differences, whereas $\bar D$
 is a bounded effect size.
@@ -452,9 +458,10 @@ protocol. Every detector is close to chance. The highest AUROC is Isolation
 Forest's $0.575$ ($95\%$ CI $0.504$--$0.645$), and COPOD's interval ($0.507$--$0.621$)
 also excludes $0.5$; both do so narrowly, which is weak evidence of above-chance ranking.
 Over ten seeds Isolation Forest's AUROC is $0.575\pm0.018$ (range $0.550$--$0.603$), so
-its margin over chance depends on the seed as well as on the test files. No detector is
-shown to be better than the others: the paired difference between the two best (Isolation
-Forest and COPOD) is $0.012$ (CI $-0.066$ to $0.092$). The LSTM autoencoder is below chance
+its margin over chance depends on the seed as well as on the test files. The paired
+comparison of the two highest-scoring detectors (Isolation Forest and COPOD) did not
+establish a significant difference ($0.012$, CI $-0.066$ to $0.092$); other pairs were not
+tested. The LSTM autoencoder is below chance
 (AUROC $0.442$, three seeds within $\pm0.001$). With a calibrated threshold the
 best MCC is $0.113$ (COPOD; CI $0.045$--$0.190$). The label-free rule gives MCC
 within $\pm0.05$ of zero for every detector: thresholds learned from normal
@@ -463,24 +470,24 @@ data in this pooled setting do not separate faults.
 \begin{table}[t]
 \centering\small
 \caption{SKAB, pooled protocol (test: last 20\% of each of 34 runs, 7{,}503 rows,
-30.0\% anomalous). AUROC and MCC with 95\% block-bootstrap CIs over files. MCC
-columns use the label-free (LF) or validation-MCC (VM) threshold; event recall
-uses VM; 33 fault events.}
+30.0\% anomalous). Seed-0 models. AUROC and validation-MCC (VM) MCC with 95\%
+block-bootstrap CIs over files (test-block variability only); label-free (LF) MCC is a
+point estimate. Event recall and median detection delay use VM; 33 fault events.}
 \label{tab:skab}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
-Detector & AUROC [95\% CI] & AUPRC & MCC LF & MCC VM [95\% CI] & Event rec. VM \\
+Detector & AUROC [95\% CI] & AUPRC & MCC LF & MCC VM [95\% CI] & Event rec. VM & Delay VM (s) \\
 \midrule
-Isolation Forest & 0.575 [0.504, 0.645] & 0.338 & 0.005 & 0.097 [$-$0.026, 0.233] & 0.94 \\
-COPOD & 0.558 [0.507, 0.621] & 0.320 & $-$0.042 & 0.113 [0.045, 0.190] & 1.00 \\
-ECOD & 0.535 [0.476, 0.601] & 0.315 & $-$0.016 & 0.066 [$-$0.010, 0.159] & 1.00 \\
-Elliptic Envelope & 0.520 [0.459, 0.581] & 0.305 & $-$0.050 & 0.051 [$-$0.079, 0.182] & 0.45 \\
-$z$-score & 0.513 [0.477, 0.554] & 0.307 & $-$0.051 & $-$0.032 [$-$0.102, 0.039] & 0.48 \\
-HBOS & 0.510 [0.420, 0.602] & 0.315 & 0.041 & 0.012 [$-$0.116, 0.152] & 0.85 \\
-One-Class SVM & 0.498 [0.463, 0.533] & 0.300 & $-$0.035 & $-$0.042 [$-$0.106, 0.009] & 0.73 \\
-PCA-recon & 0.489 [0.455, 0.517] & 0.294 & $-$0.046 & $-$0.047 [$-$0.104, $-$0.005] & 0.76 \\
-LOF & 0.489 [0.450, 0.533] & 0.299 & 0.007 & $-$0.021 [$-$0.073, 0.032] & 0.82 \\
-LSTM-AE & 0.442 [0.392, 0.500] & 0.267 & $-$0.075 & $-$0.078 [$-$0.165, $-$0.007] & 0.27 \\
+Isolation Forest & 0.575 [0.504, 0.645] & 0.338 & 0.005 & 0.097 [$-$0.026, 0.233] & 0.94 & 3 \\
+COPOD & 0.558 [0.507, 0.621] & 0.320 & $-$0.042 & 0.113 [0.045, 0.190] & 1.00 & 0 \\
+ECOD & 0.535 [0.476, 0.601] & 0.315 & $-$0.016 & 0.066 [$-$0.010, 0.159] & 1.00 & 0 \\
+Elliptic Envelope & 0.520 [0.459, 0.581] & 0.305 & $-$0.050 & 0.051 [$-$0.079, 0.182] & 0.45 & 0 \\
+$z$-score & 0.513 [0.477, 0.554] & 0.307 & $-$0.051 & $-$0.032 [$-$0.102, 0.039] & 0.48 & 8.5 \\
+HBOS & 0.510 [0.420, 0.602] & 0.315 & 0.041 & 0.012 [$-$0.116, 0.152] & 0.85 & 0.5 \\
+One-Class SVM & 0.498 [0.463, 0.533] & 0.300 & $-$0.035 & $-$0.042 [$-$0.106, 0.009] & 0.73 & 10 \\
+PCA-recon & 0.489 [0.455, 0.517] & 0.294 & $-$0.046 & $-$0.047 [$-$0.104, $-$0.005] & 0.76 & 17 \\
+LOF & 0.489 [0.450, 0.533] & 0.299 & 0.007 & $-$0.021 [$-$0.073, 0.032] & 0.82 & 14 \\
+LSTM-AE & 0.442 [0.392, 0.500] & 0.267 & $-$0.075 & $-$0.078 [$-$0.165, $-$0.007] & 0.27 & 33 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -521,7 +528,11 @@ rows, AIT201 on 73\% and AIT501--504 on 53--58\%. Detectors that combine all fea
 through distances or reconstructions inherit any single feature's shift; detectors that
 score each feature's rarity separately (COPOD, ECOD, HBOS) or split on one feature at a
 time (Isolation Forest) bound its influence. Elliptic Envelope shows the opposite failure,
-with very few alarms (MCC $0.005$). When a labelled third of the attack period is used to
+with very few alarms (MCC $0.005$). Among the detectors whose label-free false-alarm rate stayed low, the
+median delay to the first alarm in a detected attack was $12.5$\,s for Isolation Forest,
+$20.5$\,s for HBOS, $66$\,s for Elliptic Envelope and $41$--$111$\,s for ECOD and COPOD, which also detected the fewest
+attacks (event recall $0.17$--$0.26$); the zero delays of the high-false-alarm detectors
+reflect alarms that were already firing. When a labelled third of the attack period is used to
 calibrate thresholds, MCC on the remaining two thirds rises sharply for the detectors
 whose label-free thresholds failed (One-Class SVM $0.822$, $z$-score $0.820$, LOF
 $0.742$), but not for PCA reconstruction ($0.078$) or the LSTM autoencoder ($0.101$).
@@ -530,26 +541,26 @@ $0.742$), but not for PCA reconstruction ($0.078$) or the LSTM autoencoder ($0.1
 \centering\small
 \caption{SWaT, official release, standard protocol, 25 sensors (test: full attack
 period, 449{,}919 rows, 12.1\% attacks, 35 contiguous attack segments). Seed-0 models.
-AUROC and MCC with 95\% block-bootstrap CIs (one-hour blocks; test-block variability
-only). LF: label-free threshold (99th
+AUROC and label-free MCC with 95\% block-bootstrap CIs (one-hour blocks; test-block
+variability only); VM MCC is a point estimate. LF: label-free threshold (99th
 percentile of held-out normal-week scores); FAR: false-alarm rate on the attack
 period's normal rows; VM: validation-MCC threshold calibrated on the first third,
 scored on the last two thirds.}
 \label{tab:swat}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
-Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & MCC VM \\
+Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & Delay LF (s) & MCC VM \\
 \midrule
-ECOD & 0.856 [0.777, 0.925] & 0.694 & 0.336 [0.216, 0.425] & 0.002 & 0.26 & 0.617 \\
-COPOD & 0.849 [0.770, 0.918] & 0.726 & 0.628 [0.488, 0.730] & 0.001 & 0.17 & 0.788 \\
-HBOS & 0.826 [0.735, 0.903] & 0.553 & 0.463 [0.306, 0.584] & 0.118 & 0.63 & 0.440 \\
-Isolation Forest & 0.824 [0.726, 0.895] & 0.563 & 0.539 [0.369, 0.675] & 0.070 & 0.69 & 0.552 \\
-LSTM-AE & 0.822 [0.722, 0.899] & 0.731 & 0.130 [0.056, 0.200] & 0.742 & 0.89 & 0.101 \\
-Elliptic Envelope & 0.821 [0.727, 0.890] & 0.509 & 0.005 [$-$0.031, 0.052] & 0.015 & 0.74 & 0.401 \\
-LOF & 0.820 [0.721, 0.897] & 0.718 & 0.149 [0.090, 0.212] & 0.748 & 1.00 & 0.742 \\
-One-Class SVM & 0.816 [0.711, 0.896] & 0.718 & 0.184 [0.106, 0.274] & 0.581 & 0.91 & 0.822 \\
-PCA-recon & 0.814 [0.715, 0.893] & 0.722 & 0.131 [0.055, 0.208] & 0.726 & 0.91 & 0.078 \\
-$z$-score & 0.811 [0.708, 0.890] & 0.719 & 0.215 [0.109, 0.331] & 0.421 & 0.91 & 0.820 \\
+ECOD & 0.856 [0.777, 0.925] & 0.694 & 0.336 [0.216, 0.425] & 0.002 & 0.26 & 41 & 0.617 \\
+COPOD & 0.849 [0.770, 0.918] & 0.726 & 0.628 [0.488, 0.730] & 0.001 & 0.17 & 111 & 0.788 \\
+HBOS & 0.826 [0.735, 0.903] & 0.553 & 0.463 [0.306, 0.584] & 0.118 & 0.63 & 20.5 & 0.440 \\
+Isolation Forest & 0.824 [0.726, 0.895] & 0.563 & 0.539 [0.369, 0.675] & 0.070 & 0.69 & 12.5 & 0.552 \\
+LSTM-AE & 0.822 [0.722, 0.899] & 0.731 & 0.130 [0.056, 0.200] & 0.742 & 0.89 & 0 & 0.101 \\
+Elliptic Envelope & 0.821 [0.727, 0.890] & 0.509 & 0.005 [$-$0.031, 0.052] & 0.015 & 0.74 & 66 & 0.401 \\
+LOF & 0.820 [0.721, 0.897] & 0.718 & 0.149 [0.090, 0.212] & 0.748 & 1.00 & 0 & 0.742 \\
+One-Class SVM & 0.816 [0.711, 0.896] & 0.718 & 0.184 [0.106, 0.274] & 0.581 & 0.91 & 0 & 0.822 \\
+PCA-recon & 0.814 [0.715, 0.893] & 0.722 & 0.131 [0.055, 0.208] & 0.726 & 0.91 & 0 & 0.078 \\
+$z$-score & 0.811 [0.708, 0.890] & 0.719 & 0.215 [0.109, 0.331] & 0.421 & 0.91 & 0 & 0.820 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -567,7 +578,8 @@ to COPOD and ECOD).
 Label-free thresholds transfer well on HAI: held-out normal data from the training
 period predicted the test-period false-alarm rate closely (0.4--1.6\% for every
 classical detector against a 1\% target; 9.1\% for the LSTM autoencoder), and the
-leading five detectors raised alarms in all 50 attacks. With these thresholds MCC is
+leading five detectors raised alarms in all 50 attacks, with a median delay of
+1.5--5\,s (Isolation Forest $27$\,s, Elliptic Envelope $38$\,s). With these thresholds MCC is
 $0.597$--$0.627$ for PCA reconstruction, LOF, One-Class SVM and the $z$-score.
 Calibrating on a labelled test file raises MCC on the remaining files only slightly
 (by $0.05$--$0.06$) for the leaders, but by $0.33$ for the LSTM autoencoder, whose
@@ -581,24 +593,24 @@ the SWaT kind occurs and thresholds transfer; Elliptic Envelope trails on both.
 \centering\small
 \caption{HAI 21.03 (test: five files, 402{,}005 rows, 2.2\% attacks, 50 attacks).
 Seed-0 models. AUROC and label-free MCC with 95\% block-bootstrap CIs (one-hour blocks;
-test-block variability only). FAR:
+test-block variability only); VM MCC is a point estimate. FAR:
 false-alarm rate on normal test rows; VM: validation-MCC threshold calibrated on test
 file 1, scored on files 2--5.}
 \label{tab:hai}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
-Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & MCC VM \\
+Detector & AUROC [95\% CI] & AUPRC & MCC LF [95\% CI] & FAR LF & Event rec. LF & Delay LF (s) & MCC VM \\
 \midrule
-PCA-recon & 0.929 [0.899, 0.954] & 0.641 & 0.624 [0.572, 0.670] & 0.016 & 1.00 & 0.678 \\
-LOF & 0.920 [0.895, 0.948] & 0.617 & 0.626 [0.570, 0.675] & 0.016 & 1.00 & 0.691 \\
-LSTM-AE & 0.916 [0.887, 0.948] & 0.585 & 0.336 [0.284, 0.391] & 0.091 & 1.00 & 0.664 \\
-One-Class SVM & 0.895 [0.858, 0.930] & 0.590 & 0.627 [0.573, 0.677] & 0.012 & 1.00 & 0.662 \\
-$z$-score & 0.895 [0.860, 0.928] & 0.539 & 0.597 [0.544, 0.648] & 0.013 & 1.00 & 0.653 \\
-ECOD & 0.865 [0.817, 0.906] & 0.470 & 0.519 [0.446, 0.580] & 0.007 & 0.78 & 0.515 \\
-COPOD & 0.853 [0.795, 0.900] & 0.479 & 0.531 [0.467, 0.591] & 0.004 & 0.80 & 0.513 \\
-Isolation Forest & 0.837 [0.783, 0.884] & 0.359 & 0.414 [0.343, 0.484] & 0.004 & 0.66 & 0.425 \\
-HBOS & 0.728 [0.652, 0.792] & 0.115 & 0.145 [0.078, 0.214] & 0.011 & 0.42 & 0.121 \\
-Elliptic Envelope & 0.663 [0.608, 0.716] & 0.114 & 0.179 [0.119, 0.248] & 0.007 & 0.48 & 0.177 \\
+PCA-recon & 0.929 [0.899, 0.954] & 0.641 & 0.624 [0.572, 0.670] & 0.016 & 1.00 & 1.5 & 0.678 \\
+LOF & 0.920 [0.895, 0.948] & 0.617 & 0.626 [0.570, 0.675] & 0.016 & 1.00 & 2 & 0.691 \\
+LSTM-AE & 0.916 [0.887, 0.948] & 0.585 & 0.336 [0.284, 0.391] & 0.091 & 1.00 & 5 & 0.664 \\
+One-Class SVM & 0.895 [0.858, 0.930] & 0.590 & 0.627 [0.573, 0.677] & 0.012 & 1.00 & 3 & 0.662 \\
+$z$-score & 0.895 [0.860, 0.928] & 0.539 & 0.597 [0.544, 0.648] & 0.013 & 1.00 & 3 & 0.653 \\
+ECOD & 0.865 [0.817, 0.906] & 0.470 & 0.519 [0.446, 0.580] & 0.007 & 0.78 & 24 & 0.515 \\
+COPOD & 0.853 [0.795, 0.900] & 0.479 & 0.531 [0.467, 0.591] & 0.004 & 0.80 & 22 & 0.513 \\
+Isolation Forest & 0.837 [0.783, 0.884] & 0.359 & 0.414 [0.343, 0.484] & 0.004 & 0.66 & 27 & 0.425 \\
+HBOS & 0.728 [0.652, 0.792] & 0.115 & 0.145 [0.078, 0.214] & 0.011 & 0.42 & 36 & 0.121 \\
+Elliptic Envelope & 0.663 [0.608, 0.716] & 0.114 & 0.179 [0.119, 0.248] & 0.007 & 0.48 & 38 & 0.177 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -976,7 +988,8 @@ Forest either collapsed into flagging everything or learned the attacks as
 normal. In practice this argues for one of three things: retraining data vetted
 by an operator; a slow-changing detector (here, the Elliptic Envelope on whitened
 components), whose static form was as good as any adaptive variant; or adaptation
-of the threshold rather than the model. For cheap models such as Isolation Forest, a
+of the threshold rather than the model. For a PHM system this means treating retraining
+as a maintenance action with its own check, not as an automatic background step. For cheap models such as Isolation Forest, a
 drift test can cost more than the retrain it is meant to save.
 
 \paragraph{Cost.} Single-reading latencies span almost six orders of magnitude, from

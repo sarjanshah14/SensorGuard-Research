@@ -1369,3 +1369,19 @@ Three wording/consistency corrections, no new experiments. (1) SKAB: only the to
 The review (8.0/10, "keep version 4 as master") asked only for checks. Repository: unauthenticated requests to the GitHub page, experiments/revision and results/revised return 200; the API lists all eight experiment scripts and all result JSONs; the repo is not private; git tracks no iTrust files. README now also lists the WADI analyser-ablation, SWAT_SOURCE=official24 and re-upload runs, so every reported table has a command. References: all 45 bibitems are cited and every citation resolves; one APA ordering error (Liu, Q. 2024 listed before Liu, F. T. 2008) was fixed. Length left at 19 pages; limitations (single stream, post-hoc WADI ablation, small LSTM) were already stated.
 
 **Plain language:** the code link works for anyone, every table can be regenerated from a listed command, and the reference list is in proper APA order.
+
+## Session 33 — 2026-11-09 — Seventh external review: reporting rigor
+
+**Goal:** the review judged the idea strong but the reporting not as rigorous as a paper about evaluation protocols must be. Each point was checked against code and JSON before editing.
+
+**Detection delay:** the methods and limitations claimed it was reported, but no table showed it. The values were already in every result file (`median_delay_s`), so Tables 2-4 gained a delay column, the methods define it (seconds from the first labelled row of an event to the first alarm, median over detected events, near zero for detectors already alarming), and the SWaT and HAI text summarise it.
+
+**SKAB label-free threshold:** `skab_revised.py` sets it from `va & (y == 0)`, i.e. the normal-labelled rows of the six validation runs' training portions (3,438 of 5,562 rows). Selecting them uses labels; the paper now says so explicitly and contrasts SWaT/WADI/HAI, whose held-out normal data come from normal-only recordings.
+
+**CI captions:** SKAB bootstraps MCC at the VM threshold, SWaT and HAI at the LF threshold; each caption now says which MCC column has intervals and which is a point estimate.
+
+**Drift details (from `drift_revised.py`):** KS over all 125 features against a reference that is the initial window until the first refit and then the last refit's rows; threshold 0.317 = 95th percentile of D between the initial window and its 13 one-hour slices (conservative toward firing, since the slices are part of the reference); the check runs every batch; failed attempts change nothing.
+
+**Also:** SKAB paired claim limited to the top two; abstract shortened from 462 to 299 words; PHM framing added. Rendered PDF checked page by page (19 pages, header on 18, all tables readable).
+
+**Plain language:** the paper now shows every number it says it reports, and is explicit about where labels were used.

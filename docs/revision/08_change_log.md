@@ -37,6 +37,7 @@ Revised: `paper/paper2_revised.tex`. Revised numbers: `results/revised/*.json`. 
 | S29 | Abstract FAR grouping imprecise; WADI ablation and timing unexplained | Second external review | Detectors named; ablation marked post hoc; WADI continuity verified and stated |
 | S30 | SWaT "all ten rank equally well" | Third external review: only top-2 paired test | Reworded in five places; equivalence of all ten stated as untested |
 | S31 | WADI rolling features crossed a 73 h release gap | Third external review | Features and LSTM windows restart at the gap; WADI rerun; classical AUROC within 0.001; Table 5 regenerated |
+| S32 | Median detection delay claimed but not reported; SKAB label-free threshold source unclear; CI captions inexact; drift trigger under-specified; abstract 462 words | Seventh external review | Delay columns + definition; SKAB threshold rows and label use disclosed; captions name CI columns; KS reference/update/calibration/failed-attempt rules stated; abstract 299 words; PHM framing |
 | S17 | Contribution: dataset-dependent winner; deep not always better | Already established (Audibert 2022; Sarfraz 2024) | Reframed: protocol sensitivity + retraining-label risk + measured cost; prior work credited | `04_novelty_and_research_gap.md` | No |
 
 ## B. Editorial changes
