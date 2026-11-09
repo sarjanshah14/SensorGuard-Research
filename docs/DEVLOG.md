@@ -1395,3 +1395,9 @@ The review (8.0/10, "keep version 4 as master") asked only for checks. Repositor
 **LSTM-AE coverage:** the re-upload layout comparison, SKAB reference protocol and cost table cover the nine classical detectors only; captions, the contributions list and the protocol text now say so ("the same detectors" removed).
 
 **Plain language:** every metric the paper says it reports is now in a table, and nothing implies the LSTM was run where it was not.
+
+## Session 35 — 2026-11-09 — Ninth external review: two consistency fixes
+
+The WADI text said the six high-FAR detectors had event recall 1.00; Table 5 shows LSTM-AE at 0.86. Fixed to "five classical detectors 1.00, LSTM-AE 0.86, all zero delay". The resource-measurement method ("Each detector is fitted and timed"), the Section 7 opening and the Figure 4 caption now say nine classical detectors, with the LSTM autoencoder's latency and memory measured separately. Rendered PDF re-checked (20 pages).
+
+**Plain language:** two sentences now match their tables exactly.

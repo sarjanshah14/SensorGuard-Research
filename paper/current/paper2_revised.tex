@@ -435,7 +435,7 @@ rows per batch, $p$-values vanish for negligible differences, whereas $\bar D$
 is a bounded effect size.
 
 \subsection{Resource measurement}
-Each detector is fitted and timed in its own freshly started (spawned) process
+Each of the nine classical detectors is fitted and timed in its own freshly started (spawned) process
 inside a Docker container run with \texttt{--cpus=1 --memory=1g} on an ARM64
 (Apple M4) host, with BLAS threads limited to one; the container's control group
 confirmed a 1.0-CPU quota and a 1{,}024\,MB memory limit. Reported are fit time,
@@ -449,7 +449,9 @@ memory events are read from the control group.
 The cost of recomputing the rolling features for one new reading from a
 30-row buffer is reported separately. This is a capped container, not an edge
 device: a physical device's slower cores, thermal limits and I/O are not
-represented, so latencies are lower bounds.
+represented, so latencies are lower bounds. The LSTM autoencoder's single-window
+inference latency and process memory are measured separately and reported in
+Section~\ref{sec:edge}.
 
 \section{Results}
 \label{sec:results}
@@ -630,8 +632,9 @@ SVM, LOF, PCA reconstruction, Elliptic Envelope and the LSTM autoencoder are at 
 (AUROC $0.46$--$0.52$). These six detectors raise alarms on 55.8--56.1\% of the attack
 file's normal rows under the label-free rule, and the near-identical rate points to a
 single cause: the analyser 2B\_AIT\_002\_PV is outside its training range on 55.5\% of
-those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Their apparent event recall
-of $1.00$ with zero delay reflects alarms that fire almost continuously, not detection.
+those rows (2A\_AIT\_004\_PV on 26\%, 1\_AIT\_003\_PV on 7\%). Five of the classical detectors reach an event recall of $1.00$ and the LSTM autoencoder
+$0.86$; all six have zero median delay, which reflects alarms already firing almost
+continuously rather than early detection.
 Repeating the experiment without these three analysers (Table~\ref{tab:wadiex}) removes the
 effect: every detector's label-free false-alarm rate falls to 0.6--1.3\%, AUROC moves into a common band of $0.649$--$0.748$ with
 overlapping CIs, and label-free MCC reaches $0.329$ for the LSTM autoencoder and
@@ -894,7 +897,8 @@ fragile in deployment, a property a single benchmark number hides.
 \section{Resource Cost per Reading}
 \label{sec:edge}
 
-Table~\ref{tab:edge} and Fig.~\ref{fig:edge} report the cost of each detector
+Table~\ref{tab:edge} and Fig.~\ref{fig:edge} report the cost of each of the nine classical detectors
+(the LSTM autoencoder is reported separately at the end of this section)
 fitted on SWaT-shaped data inside the
 one-CPU, 1\,GB ARM64 container. Single-reading latency spans more than five orders of
 magnitude. The $z$-score scores a reading in $0.002$\,ms; PCA reconstruction, HBOS,
@@ -953,7 +957,8 @@ COPOD & 1.11 & 222.6 & 739.3 & 833.9 & 880.7 & 11{,}203 & 235{,}157 & 527 \\
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.75\textwidth]{edge_cost.png}
-\caption{Single-reading latency against serialised model size (both log scale) in the
+\caption{Single-reading latency against serialised model size (both log scale) for the nine
+classical detectors (LSTM autoencoder reported separately in the text) in the
 capped container, for SKAB-shaped (40 features) and SWaT-shaped (120 features) input.}
 \label{fig:edge}
 \end{figure}
