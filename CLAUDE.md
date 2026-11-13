@@ -4,9 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-Research paper by Sarjan Shah and Prof. Abhi Shah: *Protocol Sensitivity in Unsupervised
-Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost*,
-targeting IJPHM. The first version (ICACS-2026) was rejected; the current work is the
+Research paper by Sarjan Shah and Prof. Abhi Shah: *Comparative and Adaptive Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor Anomaly Detection in Industrial Systems: A Cross-Dataset and Edge-Deployability Study*
+(title kept from the first version; venue being decided after the IJPHM desk rejection). The first version (ICACS-2026) was rejected; the current work is the
 revision. **Start from `CHECKPOINT.md`.** Layout:
 
 - `README.md` — overview, layout, reproduce commands, data access.

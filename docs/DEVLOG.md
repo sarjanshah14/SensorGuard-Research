@@ -1407,3 +1407,18 @@ The WADI text said the six high-FAR detectors had event recall 1.00; Table 5 sho
 The HAI sentence implied Isolation Forest and Elliptic Envelope detected all 50 attacks; it now names the five that did (PCA, LOF, LSTM-AE, OCSVM, z-score; 1.5-5 s) and gives IF/EE delays with their event recalls (0.66, 0.48). The SKAB validation split said "20% of the runs" but used six of 34; `file_holdout_split` shuffles with RandomState(42) and takes int(0.2*34) = 6, which the paper now states (17.6%). All 31 DOIs in the reference list were checked against the doi.org handle API; all resolve.
 
 **Plain language:** the last two sentences that did not match the tables or code now do, and every DOI link works.
+
+## Session 38 — 2026-11-13 — IJPHM desk rejection recorded; new venues checked
+
+**What happened:** IJPHM desk-rejected the paper on 2026-11-09, about 25 minutes after submission and without sending it to reviewers (discussed in session 37's chat, not logged then). The email's line "we do not accept submissions of a revised manuscript based on this rejected article" applies to IJPHM only. Most likely reason: scope. IJPHM is about machine health, and three of the four datasets are cyber-attack data, so the paper read as industrial security. Other probable factors: the introduction narrates the first version's mistakes, the length (20 pages vs 10-15 suggested), and the note to the editor mentioning the ICACS rejection.
+
+**Venue check:** read the venues' own pages where possible.
+- IFAC SAFEPROCESS 2027 (Delft, 29 Jun-2 Jul 2027): official topic list includes data-driven diagnosis, anomaly detection, condition monitoring and cybersecurity for cyber-physical systems, so both framings fit. Regular papers due 22 Nov 2026 (extended from 31 Oct, per the conference site's listing). Page limit and fees not checked; IFAC papers are usually 6 pages.
+- IJCIP (Elsevier): scope names water treatment, chemicals, critical manufacturing; research papers 5,000-10,000 words; subscription route has no publication fee (open access USD 3,110); preprints allowed; numbered references.
+- JISA (Elsevier): hybrid; author-year references; preprints allowed.
+- SN Computer Science (Springer): hybrid; slow reviews reported (anecdotal).
+- IJIT (Springer/BVICAM): subscription route free only up to 6 typeset pages, then ₹2,000 per page for Indian authors.
+
+Written up in `docs/revision/12_venue_options_after_ijphm.md`. CHECKPOINT and ROADMAP updated. Nothing committed.
+
+**Plain language:** IJPHM said no because the paper looked like a security paper, not a machine-health paper. Any other journal or conference can still take it. The two best fits are the SAFEPROCESS conference (deadline 22 Nov) and the IJCIP journal (no deadline, free). Sarjan and Prof. Shah need to pick one.

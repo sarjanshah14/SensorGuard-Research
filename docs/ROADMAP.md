@@ -440,8 +440,13 @@ Found the SWaT split error, inconsistent thresholds, label-using drift retrainin
 
 ### [x] R7. Submitted to IJPHM on 2026-11-09 (submission ID 5305)
 
-### [ ] R8. Respond to IJPHM reviews (revise, rebuttal letter); after acceptance set footer year and paper number
-Depends on: Sarjan opening the .docx in Word for a last look and Prof. Shah's read-through.
+### [x] R7b. IJPHM desk-rejected on 2026-11-09 (no peer review; most likely scope). Resubmission to IJPHM is not allowed; other venues are unaffected.
+
+### [ ] R8. Choose the next venue (Sarjan + Prof. Shah)
+Options and verified facts: `docs/revision/12_venue_options_after_ijphm.md`. SAFEPROCESS 2027 regular papers are due 22 Nov 2026; IJCIP has no deadline.
+
+### [ ] R9. Reframe for the chosen venue and submit
+Reframe around industrial-control-system / critical-infrastructure monitoring, remove the "first analysis was wrong" story from the introduction, apply the venue's template, references and length. Update README.md, CHECKPOINT.md and CLAUDE.md, which still name IJPHM. Keep `experiments/revision/` and `results/revised/` paths unchanged.
 
 ---
 

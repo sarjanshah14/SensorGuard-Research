@@ -4,11 +4,12 @@ Paste this to a fresh Claude session: "Read CHECKPOINT.md, CLAUDE.md, then conti
 
 ## What this project is
 Paper by Sarjan Shah + Prof. Abhi Shah (Lok Jagruti Kendra University), revised after the
-ICACS-2026 rejection and targeting IJPHM: "Protocol Sensitivity in Unsupervised
-Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost".
+ICACS-2026 rejection. Title (decided 2026-11-14): "Comparative and Adaptive Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor Anomaly Detection in Industrial Systems: A Cross-Dataset and Edge-Deployability Study".
 10 detectors × 4 datasets (SKAB, SWaT official, WADI A2 official, HAI 21.03).
 
 ## >>> CURRENT STAGE (read first) <<<
+- 2026-11-14: Title changed back to the first version's "Comparative and Adaptive Evaluation..." title (Sarjan's decision, to match applications, resume and LORs). Content stays the revised 10-detector x 4-dataset study. Title changed in README, CLAUDE.md and paper/current/paper2_revised.tex (the old IJPHM .docx keeps the old title).
+- 2026-11-13: **IJPHM DESK-REJECTED on 2026-11-09** (no peer review; most likely scope: attack datasets read as security, not machine health). Can't resubmit to IJPHM; any other venue is fine. Next: Sarjan + Prof. Shah pick a venue from `docs/revision/12_venue_options_after_ijphm.md` (SAFEPROCESS 2027 due 22 Nov 2026, or IJCIP, no deadline), then reframe (ROADMAP R8/R9). Lines below about waiting for IJPHM reviews are out of date.
 - 2026-11-09: SUBMITTED to IJPHM, submission ID 5305 (Technical Papers). Waiting for reviews. Do not rename repo folders cited in the paper (experiments/revision/, results/revised/). When reviews arrive: revise paper2_revised.tex, rebuild with make_ijphm_docx.py, write a point-by-point response.
 - 2026-11-09 (session 34): eighth review fixes done (complete WADI tables, SKAB LF wording, LSTM scope). 20 pages, 10 tables. Ready to submit after Prof. Shah's OK.
 - 2026-11-09 (session 33): seventh review fixes done (delay reported, SKAB threshold source disclosed, CI captions, drift details, 299-word abstract). Ready to submit after Prof. Shah's OK.

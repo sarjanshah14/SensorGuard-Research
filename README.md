@@ -1,8 +1,8 @@
-# Protocol Sensitivity in Unsupervised Industrial Anomaly Detection
+# Comparative and Adaptive Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor Anomaly Detection in Industrial Systems: A Cross-Dataset and Edge-Deployability Study
 
 Sarjan Shah and Prof. Abhi Shah, Department of Information Technology, Lok Jagruti Kendra University.
 
-Paper: *Protocol Sensitivity in Unsupervised Industrial Anomaly Detection: Threshold Transfer, Retraining Risk, and Inference Cost* (target: International Journal of Prognostics and Health Management, IJPHM).
+Paper: *Comparative and Adaptive Evaluation of Unsupervised Machine Learning Models for Multivariate Sensor Anomaly Detection in Industrial Systems: A Cross-Dataset and Edge-Deployability Study*. Target venue: being decided (IJPHM desk-rejected the previous submission on 9 Nov 2026).
 
 Ten unsupervised detectors (z-score, PCA reconstruction, Elliptic Envelope, Isolation Forest, One-Class SVM, LOF, ECOD, COPOD, HBOS, LSTM autoencoder) are compared on four industrial benchmarks (SKAB, SWaT, WADI, HAI) under documented protocols. The study measures how the split definition, threshold rule, sensor set and retraining data change the conclusions, and the per-reading cost in a 1-CPU / 1 GB container.
 
